@@ -31,7 +31,7 @@ Who it’s for
 - Indie hackers building in public
 - Developers who hate writing posts
 - Busy Founders documenting progress
-- Open-source maintainers
+- Open-source shippers
 
 Why it’s different
 - No API costs (runs locally)
