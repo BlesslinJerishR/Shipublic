@@ -1,0 +1,20 @@
+.card {
+  background: rgba(var(--fgRgb), 0.03);
+  border: 1px solid rgba(var(--fgRgb), 0.10);
+  border-radius: 12px;
+  padding: 18px;
+}
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--fgRgb), 0.7);
+}

@@ -1,0 +1,25 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.statRow { display: flex; gap: 14px; flex-wrap: wrap; }
+.stat {
+  flex: 1;
+  min-width: 160px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--fgRgb), 0.10);
+  border-radius: 12px;
+  background: rgba(var(--fgRgb), 0.03);
+}
+.statLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(var(--fgRgb), 0.6);
+}
+.statValue { font-size: 28px; font-weight: 800; margin-top: 4px; }
+.heroNum { color: var(--hero); }
+.row { display: flex; gap: 12px; align-items: center; }
+.muted { color: rgba(var(--fgRgb), 0.6); }
+@media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }

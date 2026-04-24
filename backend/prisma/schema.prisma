@@ -1,0 +1,115 @@
+// ShipPublic database schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  githubId      String   @unique
+  username      String
+  name          String?
+  email         String?
+  avatarUrl     String?
+  accessToken   String
+  scopes        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projects      Project[]
+  posts         Post[]
+}
+
+model Project {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  githubRepoId    BigInt    @unique
+  owner           String
+  name            String
+  fullName        String
+  defaultBranch   String    @default("main")
+  description     String?
+  private         Boolean   @default(false)
+
+  autoSync        Boolean   @default(false)
+  webhookId       BigInt?
+  lastSyncedAt    DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  commits         Commit[]
+  posts           Post[]
+
+  @@index([userId])
+}
+
+model Commit {
+  id            String    @id @default(cuid())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sha           String
+  message       String
+  authorName    String?
+  authorEmail   String?
+  authoredAt    DateTime
+  url           String?
+  additions     Int       @default(0)
+  deletions     Int       @default(0)
+  filesChanged  Int       @default(0)
+  diffPreview   String?   @db.Text
+  summary       String?   @db.Text
+
+  createdAt     DateTime  @default(now())
+
+  @@unique([projectId, sha])
+  @@index([projectId, authoredAt])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum PostPlatform {
+  TWITTER
+  LINKEDIN
+  GENERIC
+}
+
+model Post {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title         String?
+  content       String        @db.Text
+  summary       String?       @db.Text
+  platform      PostPlatform  @default(GENERIC)
+  status        PostStatus    @default(DRAFT)
+  scheduledFor  DateTime?
+  publishedAt   DateTime?
+
+  commitShas    String[]      @default([])
+  rangeFrom     DateTime?
+  rangeTo       DateTime?
+
+  metadata      Json?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}

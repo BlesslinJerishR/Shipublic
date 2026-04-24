@@ -1,0 +1,41 @@
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.row {
+  border: 1px solid rgba(var(--fgRgb), 0.10);
+  padding: 14px;
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.repoMeta { font-size: 12px; opacity: 0.65; margin-top: 6px; }
+.modalBackdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+  display: grid; place-items: center; z-index: 50; padding: 20px;
+}
+.modal {
+  background: var(--bg); color: var(--fg);
+  width: min(720px, 100%); max-height: 80vh;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--fgRgb), 0.18);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modalHead { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(var(--fgRgb), 0.1); }
+.modalBody { padding: 12px 18px; overflow-y: auto; }
+.repoItem {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; border-radius: 8px; gap: 10px;
+}
+.repoItem:hover { background: rgba(var(--fgRgb), 0.05); }

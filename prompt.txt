@@ -112,3 +112,24 @@ DB : Postgresql
 Optimization, Caching, Queues:  Redis + BullMQ
 
 make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
+
+Build our product PRODUCT_NAME_OS landing page. Analyze the project completely. I have attached the reference landing page for you to check. Keep it in single index.html file using only HTML,CSS,JS. I need the same structure and Ui/UX (Important) and layout of the attached landing page but change the contents according to our project
+
+Follow the same pricing plans tiers and Auth flow from the landing pages
+
+Don't use emojis or hiphen or underscore , - ,  _ anywhere in the frontend. Use only Lucide icons (Important).
+
+Only use Plus Jakarta Sans for the Hero Landing slogan text section and hero texts.
+
+Use inconsolata fonts everywhere for the whole application
+Keep Sun and Moon lucide icons switch in navbar for dark and light theme switch
+
+Have the graphics in the hero landing carousels.
+
+Dark Mode as default : 
+Black Background + White color for text content + Hero Color
+Light Mode :
+White Background + Black color for text content + Hero Color
+
+Black Background : #1D1E21
+Hero Color : #FF004F

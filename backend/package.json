@@ -1,0 +1,48 @@
+{
+  "name": "shippublic-backend",
+  "version": "0.1.0",
+  "description": "ShipPublic backend: NestJS + Fastify + Prisma + BullMQ",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/oauth2": "^8.1.2",
+    "@nestjs/bullmq": "^11.0.3",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-fastify": "^11.1.6",
+    "@nestjs/schedule": "^6.0.1",
+    "@octokit/rest": "^22.0.0",
+    "@octokit/webhooks": "^14.0.1",
+    "@prisma/client": "^6.16.2",
+    "axios": "^1.7.9",
+    "bullmq": "^5.59.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "ioredis": "^5.4.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.7",
+    "@types/node": "^22.10.10",
+    "prisma": "^6.16.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3"
+  }
+}

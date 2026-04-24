@@ -1,0 +1,73 @@
+:root {
+  --hero: #FF004F;
+}
+
+html[data-theme="dark"] {
+  --bg: #1D1E21;
+  --fg: #FFFFFF;
+  --fgRgb: 255, 255, 255;
+  --bgRgb: 29, 30, 33;
+}
+
+html[data-theme="light"] {
+  --bg: #FFFFFF;
+  --fg: #000000;
+  --fgRgb: 0, 0, 0;
+  --bgRgb: 255, 255, 255;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+* { box-sizing: border-box; }
+
+a {
+  color: var(--hero);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(var(--fgRgb), 0.16);
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+button:hover { border-color: rgba(var(--fgRgb), 0.32); background: rgba(var(--fgRgb), 0.04); }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid rgba(var(--fgRgb), 0.18);
+  border-radius: 8px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--hero); }
+
+::selection { background: var(--hero); color: #FFFFFF; }
+
+.heroBtn {
+  background: var(--hero);
+  color: #FFFFFF;
+  border: 1px solid var(--hero);
+}
+.heroBtn:hover { background: var(--hero); filter: brightness(1.08); }

@@ -1,0 +1,53 @@
+.head {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.title { display: flex; flex-direction: column; gap: 4px; }
+.repoName { font-weight: 800; font-size: 22px; }
+.repoMeta { font-size: 13px; opacity: 0.7; }
+
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 999px;
+  border: 1px solid rgba(var(--fgRgb), 0.18);
+  cursor: pointer; user-select: none;
+  font-size: 13px;
+}
+.toggleOn { background: rgba(255, 0, 79, 0.12); color: var(--hero); border-color: rgba(255, 0, 79, 0.4); }
+.dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(var(--fgRgb), 0.4); }
+.dotOn { background: var(--hero); }
+
+.grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; }
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+
+.commitRow {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--fgRgb), 0.10);
+  border-radius: 10px;
+}
+.commitRow:hover { border-color: rgba(var(--fgRgb), 0.25); }
+.commitMsg { font-weight: 600; }
+.commitMeta { font-size: 12px; opacity: 0.6; }
+.shaPill {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: rgba(var(--fgRgb), 0.08);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.checkbox {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1.5px solid rgba(var(--fgRgb), 0.4);
+  display: inline-grid; place-items: center; cursor: pointer;
+}
+.checkboxOn { background: var(--hero); border-color: var(--hero); }
+
+.dateRow { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.6; }
