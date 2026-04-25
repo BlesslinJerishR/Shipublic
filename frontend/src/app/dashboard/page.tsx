@@ -92,14 +92,6 @@ export default function OverviewPage() {
         </div>
       </Card>
 
-      <Card title="Your GitHub activity">
-        {primaryProjectId ? (
-          <ContributionGraph projectId={primaryProjectId} />
-        ) : (
-          <div className={styles.muted}>Add a project to see contributions.</div>
-        )}
-      </Card>
-
       <Card title="Projects">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
           {projects.map((p) => (
@@ -125,6 +117,14 @@ export default function OverviewPage() {
           ))}
           {projects.length === 0 && <div className={styles.muted}>No projects yet.</div>}
         </div>
+      </Card>
+
+      <Card title="Your GitHub activity">
+        {primaryProjectId ? (
+          <ContributionGraph projectId={primaryProjectId} />
+        ) : (
+          <div className={styles.muted}>Add a project to see contributions.</div>
+        )}
       </Card>
     </div>
   );

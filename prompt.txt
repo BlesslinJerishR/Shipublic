@@ -163,3 +163,15 @@ Have a option to edit the custom signature inside web app too
 5. Isn't the contribution graph last 365 days ? or current year
 Have same like Github
 Last 365, current year and all the past years as a button and it should be dynamic same like Github
+
+
+1. clean and minimalistic custom scroll bar
+2. move github contribution section under recent post. let both take full width. the layout in /dashboard should be
+4x dashboard statscards
+recent posts
+github activity
+projects
+3. Increase the Auto Sign in seconds to 8 seconds
+4. Check box Ui wrong for signature fix it. make it clean and minimalistic. Bug screenshot attached. make a custom check box in red color too
+5. Apply button is now fixed. but now Project section ui/ux got problem. its not in correct responsiveness. fix. screenshot attached. its on wrong layout and showing x axis scroll. fix
+

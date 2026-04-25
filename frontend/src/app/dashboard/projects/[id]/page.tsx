@@ -149,7 +149,7 @@ export default function ProjectDetail() {
                 <div className={styles.field}>
                   <span className={styles.label}>&nbsp;</span>
                   <button onClick={sync} disabled={syncing} title="Pull latest from GitHub">
-                    <RefreshCw size={14} /> {syncing ? 'Syncing' : 'Sync from GitHub'}
+                    <RefreshCw size={14} /> {syncing ? 'Syncing' : 'Sync Git'}
                   </button>
                 </div>
               </div>
