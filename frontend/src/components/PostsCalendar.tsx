@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles, Send } from 'lucide-react';
 import type { Post } from '@/lib/types';
 import styles from './PostsCalendar.module.css';
@@ -14,7 +14,7 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-export function PostsCalendar({
+function PostsCalendarImpl({
   posts,
   onSelectDate,
   onSelectPost,
@@ -52,18 +52,24 @@ export function PostsCalendar({
     return m;
   }, [posts]);
 
-  const today = new Date();
+  // Compute "today" once per render (cheap) and stash month index for the loop
+  // so we don't allocate inside it.
+  const today = useMemo(() => new Date(), []);
+  const cursorMonth = cursor.getMonth();
+
+  const goPrev = useCallback(() => setCursor((c) => addMonths(c, -1)), []);
+  const goNext = useCallback(() => setCursor((c) => addMonths(c, 1)), []);
 
   return (
     <div className={styles.cal}>
       <div className={styles.head}>
-        <button onClick={() => setCursor(addMonths(cursor, -1))} aria-label="Previous month">
+        <button onClick={goPrev} aria-label="Previous month">
           <ChevronLeft size={16} />
         </button>
         <div className={styles.month}>
           {cursor.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
         </div>
-        <button onClick={() => setCursor(addMonths(cursor, 1))} aria-label="Next month">
+        <button onClick={goNext} aria-label="Next month">
           <ChevronRight size={16} />
         </button>
       </div>
@@ -72,7 +78,7 @@ export function PostsCalendar({
           <div key={w} className={styles.weekday}>{w}</div>
         ))}
         {cells.map((d) => {
-          const inMonth = d.getMonth() === cursor.getMonth();
+          const inMonth = d.getMonth() === cursorMonth;
           const key = d.toISOString().substring(0, 10);
           const list = byDay.get(key) || [];
           return (
@@ -112,3 +118,5 @@ export function PostsCalendar({
     </div>
   );
 }
+
+export const PostsCalendar = memo(PostsCalendarImpl);

@@ -1,31 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/Card';
 import { PostsCalendar } from '@/components/PostsCalendar';
 import { ContributionGraph } from '@/components/ContributionGraph';
 import { Select } from '@/components/Select';
 import { api } from '@/lib/api';
+import { useApi } from '@/lib/useApi';
 import type { Post, Project } from '@/lib/types';
 
 export default function CalendarPage() {
   const router = useRouter();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { data: posts = [] } = useApi<Post[]>('posts:list', () => api.posts.list() as Promise<Post[]>);
+  const { data: projects = [] } = useApi<Project[]>('projects:list', () => api.projects.list() as Promise<Project[]>);
   const [projectId, setProjectId] = useState<string>('');
 
+  // Default to first project once projects load.
   useEffect(() => {
-    (async () => {
-      const [ps, pj] = await Promise.all([api.posts.list(), api.projects.list()]);
-      setPosts(ps as Post[]);
-      setProjects(pj as Project[]);
-      const first = (pj as Project[])[0];
-      if (first) setProjectId(first.id);
-    })();
-  }, []);
+    if (!projectId && projects.length) setProjectId(projects[0].id);
+  }, [projects, projectId]);
 
-  const projectOptions = projects.map((p) => ({ value: p.id, label: p.fullName }));
+  const projectOptions = useMemo(
+    () => projects.map((p) => ({ value: p.id, label: p.fullName })),
+    [projects],
+  );
+
+  const onSelectPost = useCallback(
+    (p: Post) => router.push(`/dashboard/posts/${p.id}`),
+    [router],
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -35,7 +39,7 @@ export default function CalendarPage() {
           <div style={{ minWidth: 260 }}>
             <Select
               value={projectId}
-              onChange={(v) => setProjectId(v)}
+              onChange={setProjectId}
               options={projectOptions}
               placeholder="Select a project"
               fullWidth
@@ -53,7 +57,7 @@ export default function CalendarPage() {
       <Card title="Posts calendar">
         <PostsCalendar
           posts={posts}
-          onSelectPost={(p) => router.push(`/dashboard/posts/${p.id}`)}
+          onSelectPost={onSelectPost}
         />
       </Card>
     </div>

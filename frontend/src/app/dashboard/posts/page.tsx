@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { api } from '@/lib/api';
+import { useApi } from '@/lib/useApi';
 import type { Post, Project } from '@/lib/types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -14,24 +15,34 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [filter, setFilter] = useState('');
-
-  useEffect(() => {
-    (async () => {
-      const [ps, pj] = await Promise.all([api.posts.list(), api.projects.list()]);
-      setPosts(ps as Post[]);
-      setProjects(pj as Project[]);
-    })();
-  }, []);
-
-  const projectName = (id: string) => projects.find((p) => p.id === id)?.fullName ?? '';
-  const filtered = posts.filter((p) =>
-    !filter ||
-    p.content.toLowerCase().includes(filter.toLowerCase()) ||
-    projectName(p.projectId).toLowerCase().includes(filter.toLowerCase()),
+  const { data: posts = [] } = useApi<Post[]>(
+    'posts:list',
+    () => api.posts.list() as Promise<Post[]>,
   );
+  const { data: projects = [] } = useApi<Project[]>(
+    'projects:list',
+    () => api.projects.list() as Promise<Project[]>,
+  );
+
+  const [filter, setFilter] = useState('');
+  // Defer the filter so a long render of the list doesn't block keystrokes.
+  const deferredFilter = useDeferredValue(filter);
+
+  // O(1) project lookup instead of an array scan per post.
+  const projectMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projects) m.set(p.id, p.fullName);
+    return m;
+  }, [projects]);
+
+  const filtered = useMemo(() => {
+    if (!deferredFilter) return posts;
+    const q = deferredFilter.toLowerCase();
+    return posts.filter((p) =>
+      p.content.toLowerCase().includes(q) ||
+      (projectMap.get(p.projectId) || '').toLowerCase().includes(q),
+    );
+  }, [posts, deferredFilter, projectMap]);
 
   return (
     <Card
@@ -47,7 +58,7 @@ export default function PostsPage() {
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filtered.map((p) => (
-          <Link key={p.id} href={`/dashboard/posts/${p.id}`}>
+          <Link key={p.id} href={`/dashboard/posts/${p.id}`} prefetch={false}>
             <div style={{
               border: '1px solid rgba(var(--fgRgb), 0.10)',
               padding: '12px 14px',
@@ -56,7 +67,7 @@ export default function PostsPage() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, opacity: 0.6 }}>
                 <span>
-                  {projectName(p.projectId)} · {p.platform.toLowerCase()} ·{' '}
+                  {projectMap.get(p.projectId) || ''} · {p.platform.toLowerCase()} ·{' '}
                   <span style={{ color: STATUS_COLORS[p.status] }}>{p.status.toLowerCase()}</span>
                 </span>
                 <span>{new Date(p.createdAt).toLocaleString()}</span>

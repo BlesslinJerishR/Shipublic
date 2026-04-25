@@ -17,24 +17,44 @@ export class ApiError extends Error {
   }
 }
 
+// In-flight request de-duplication. Multiple components mounting at once and
+// requesting the same GET will share a single network round-trip.
+const inflight = new Map<string, Promise<any>>();
+
 export async function apiFetch<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   if (isDemoMode()) {
     return (await handleDemoRequest(path, init)) as T;
   }
+  const method = (init.method || 'GET').toUpperCase();
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    credentials: 'include',
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers || {}),
-    },
-  });
-  const text = await res.text();
-  let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!res.ok) throw new ApiError(res.status, data, data?.message || res.statusText);
-  return data as T;
+
+  // Only de-duplicate idempotent reads.
+  const dedupKey = method === 'GET' ? `GET ${url}` : null;
+  if (dedupKey && inflight.has(dedupKey)) {
+    return inflight.get(dedupKey)! as Promise<T>;
+  }
+
+  const exec = (async () => {
+    const res = await fetch(url, {
+      credentials: 'include',
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers || {}),
+      },
+    });
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    if (!res.ok) throw new ApiError(res.status, data, data?.message || res.statusText);
+    return data as T;
+  })();
+
+  if (dedupKey) {
+    inflight.set(dedupKey, exec);
+    exec.finally(() => inflight.delete(dedupKey));
+  }
+  return exec;
 }
 
 export const api = {

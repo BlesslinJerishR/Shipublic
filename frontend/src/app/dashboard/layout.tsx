@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useApi } from '@/lib/useApi';
 import { useTheme } from '@/lib/theme';
 import { disableDemo, isDemoMode, onDemoNotice } from '@/lib/demo';
 import type { Project, User } from '@/lib/types';
@@ -26,11 +28,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const path = usePathname();
   const { theme, toggle } = useTheme();
-  const [user, setUser] = useState<User | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
   const [demo, setDemo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const { data: user, error: meError, isLoading: meLoading } = useApi<User>(
+    'auth:me',
+    () => api.me() as Promise<User>,
+  );
+  const { data: projects = [], isLoading: pLoading } = useApi<Project[]>(
+    'projects:list',
+    () => api.projects.list() as Promise<Project[]>,
+  );
+
+  // If /me errored, the session is invalid → bounce to login.
+  useEffect(() => {
+    if (meError) router.replace('/login');
+  }, [meError, router]);
 
   useEffect(() => {
     setDemo(isDemoMode());
@@ -42,26 +55,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { off(); };
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const [u, p] = await Promise.all([api.me(), api.projects.list()]);
-        if (!mounted) return;
-        setUser(u as User);
-        setProjects(p as Project[]);
-      } catch {
-        router.replace('/login');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [router]);
+  const isActive = useCallback(
+    (p: string) => path === p || (path?.startsWith(p + '/') ?? false),
+    [path],
+  );
 
-  const isActive = (p: string) => path === p || path?.startsWith(p + '/');
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     if (isDemoMode()) {
       disableDemo();
       router.replace('/');
@@ -69,13 +68,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     try { await api.logout(); } catch {}
     router.replace('/');
-  };
+  }, [router]);
 
-  const exitDemo = () => {
+  const exitDemo = useCallback(() => {
     disableDemo();
     router.replace('/');
-  };
+  }, [router]);
 
+  const loading = (meLoading || pLoading) && !user;
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
@@ -93,19 +93,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className={styles.section}>
           <div className={styles.navTitle}>Workspace</div>
-          <Link className={`${styles.navItem} ${isActive('/dashboard') && path === '/dashboard' ? styles.navActive : ''}`} href="/dashboard">
+          <Link prefetch={false} className={`${styles.navItem} ${isActive('/dashboard') && path === '/dashboard' ? styles.navActive : ''}`} href="/dashboard">
             <LayoutDashboard size={16} /> Overview
           </Link>
-          <Link className={`${styles.navItem} ${isActive('/dashboard/projects') ? styles.navActive : ''}`} href="/dashboard/projects">
+          <Link prefetch={false} className={`${styles.navItem} ${isActive('/dashboard/projects') ? styles.navActive : ''}`} href="/dashboard/projects">
             <FolderGit2 size={16} /> Projects
           </Link>
-          <Link className={`${styles.navItem} ${isActive('/dashboard/calendar') ? styles.navActive : ''}`} href="/dashboard/calendar">
+          <Link prefetch={false} className={`${styles.navItem} ${isActive('/dashboard/calendar') ? styles.navActive : ''}`} href="/dashboard/calendar">
             <CalendarDays size={16} /> Calendar
           </Link>
-          <Link className={`${styles.navItem} ${isActive('/dashboard/posts') ? styles.navActive : ''}`} href="/dashboard/posts">
+          <Link prefetch={false} className={`${styles.navItem} ${isActive('/dashboard/posts') ? styles.navActive : ''}`} href="/dashboard/posts">
             <Sparkles size={16} /> Posts
           </Link>
-          <Link className={`${styles.navItem} ${isActive('/dashboard/settings') ? styles.navActive : ''}`} href="/dashboard/settings">
+          <Link prefetch={false} className={`${styles.navItem} ${isActive('/dashboard/settings') ? styles.navActive : ''}`} href="/dashboard/settings">
             <SettingsIcon size={16} /> Settings
           </Link>
         </div>
@@ -113,6 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={styles.section}>
           <div className={styles.navTitle}>My projects</div>
           <Link
+            prefetch={false}
             className={`${styles.navItem} ${styles.addProjectBtn}`}
             href="/dashboard/projects?add=1"
           >
@@ -121,6 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className={styles.projectList}>
             {projects.map((p) => (
               <Link
+                prefetch={false}
                 key={p.id}
                 className={`${styles.navItem} ${path?.includes(p.id) ? styles.navActive : ''}`}
                 href={`/dashboard/projects/${p.id}`}
@@ -193,8 +195,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div style={{ fontWeight: 700, letterSpacing: 0.2 }}>Dashboard</div>
           <div className={styles.userBox}>
             {user?.avatarUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className={styles.avatar} src={user.avatarUrl} alt={user.username} />
+              <Image
+                className={styles.avatar}
+                src={user.avatarUrl}
+                alt={user.username}
+                width={28}
+                height={28}
+                priority={false}
+                unoptimized
+              />
             )}
             <span className={styles.username}>{user?.name || user?.username}</span>
           </div>

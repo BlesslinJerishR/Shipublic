@@ -30,12 +30,15 @@ export class WebhooksController {
     const raw = req.rawBody ?? Buffer.from(JSON.stringify(req.body || {}));
     const expected =
       'sha256=' + crypto.createHmac('sha256', secret).update(raw).digest('hex');
+    // timingSafeEqual throws on mismatched buffer lengths, which would
+    // otherwise leak as a 500. Bail out cleanly first, then constant-time
+    // compare.
+    const sigBuf = Buffer.from(signature || '');
+    const expBuf = Buffer.from(expected);
     if (
       !signature ||
-      !crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected),
-      )
+      sigBuf.length !== expBuf.length ||
+      !crypto.timingSafeEqual(sigBuf, expBuf)
     ) {
       throw new BadRequestException('Invalid signature');
     }

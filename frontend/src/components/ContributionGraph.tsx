@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { Heatmap } from './Heatmap';
 import styles from './ContributionGraph.module.css';
@@ -18,7 +18,15 @@ function startOfYear(year: number) { return new Date(Date.UTC(year, 0, 1)); }
 function endOfYear(year: number) { return new Date(Date.UTC(year, 11, 31, 23, 59, 59)); }
 function isoOfDate(d: Date) { return d.toISOString().substring(0, 10); }
 
-export function ContributionGraph({
+export function ContributionGraph(props: {
+  projectId?: string | null;
+  startYear?: number;
+  className?: string;
+}) {
+  return <ContributionGraphImpl {...props} />;
+}
+
+const ContributionGraphImpl = memo(function ContributionGraphImpl({
   projectId,
   startYear,
   className,
@@ -93,6 +101,11 @@ export function ContributionGraph({
 
   const tab = tabs.find((t) => t.key === active) || tabs[0];
 
+  const onTabClick = useCallback((k: string) => setActive(k), []);
+
+  // Recompute the active tab range only when the tab key changes.
+  const range = useMemo(() => ({ from: tab.from(), to: tab.to() }), [tab]);
+
   return (
     <div className={`${styles.wrap} ${className || ''}`}>
       <div className={styles.head}>
@@ -111,7 +124,7 @@ export function ContributionGraph({
               role="tab"
               aria-selected={active === t.key}
               className={`${styles.tab} ${active === t.key ? styles.tabOn : ''}`}
-              onClick={() => setActive(t.key)}
+              onClick={() => onTabClick(t.key)}
             >
               {t.label}
             </button>
@@ -121,11 +134,11 @@ export function ContributionGraph({
 
       <Heatmap
         days={days}
-        from={tab.from()}
-        to={tab.to()}
+        from={range.from}
+        to={range.to}
       />
 
       {error && <div className={styles.error}>{error}</div>}
     </div>
   );
-}
+});

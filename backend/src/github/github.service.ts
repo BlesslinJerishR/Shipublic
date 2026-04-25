@@ -30,12 +30,34 @@ export interface CommitDetail extends CommitSummary {
   diff: string;
 }
 
+// Calendar lookups are expensive (a full GraphQL fan-out on GitHub's side)
+// and don't change often. Memoize per (user, range) for a few minutes so
+// dashboard re-loads and overview widgets reuse the same payload.
+const CALENDAR_TTL_MS = 5 * 60_000;
+const CALENDAR_MAX = 500;
+const calendarCache = new Map<string, { value: any; expires: number }>();
+
 @Injectable()
 export class GithubService {
   private readonly logger = new Logger(GithubService.name);
+  // Avoid allocating a fresh Octokit (and its retry/throttle plumbing) per
+  // request; a small per-token map covers the common single-user-per-process
+  // pattern in dev and is bounded for multi-user prod.
+  private readonly octCache = new Map<string, { client: Octokit; expires: number }>();
+  private static readonly OCT_TTL_MS = 10 * 60_000;
+  private static readonly OCT_MAX = 200;
 
   client(token: string) {
-    return new Octokit({ auth: token, userAgent: 'Shipublic/0.1' });
+    const now = Date.now();
+    const hit = this.octCache.get(token);
+    if (hit && hit.expires > now) return hit.client;
+    if (this.octCache.size >= GithubService.OCT_MAX) {
+      const first = this.octCache.keys().next().value;
+      if (first) this.octCache.delete(first);
+    }
+    const client = new Octokit({ auth: token, userAgent: 'Shipublic/0.1' });
+    this.octCache.set(token, { client, expires: now + GithubService.OCT_TTL_MS });
+    return client;
   }
 
   async listRepos(token: string): Promise<RepoSummary[]> {
@@ -139,6 +161,11 @@ export class GithubService {
     from?: string,
     to?: string,
   ) {
+    const cacheKey = `${username}|${from ?? ''}|${to ?? ''}`;
+    const now = Date.now();
+    const hit = calendarCache.get(cacheKey);
+    if (hit && hit.expires > now) return hit.value;
+
     const oct = this.client(token);
     const query = `query($login:String!,$from:DateTime,$to:DateTime){
       user(login:$login){
@@ -152,7 +179,13 @@ export class GithubService {
     }`;
     try {
       const res: any = await oct.graphql(query, { login: username, from, to });
-      return res.user.contributionsCollection.contributionCalendar;
+      const value = res.user.contributionsCollection.contributionCalendar;
+      if (calendarCache.size >= CALENDAR_MAX) {
+        const first = calendarCache.keys().next().value;
+        if (first) calendarCache.delete(first);
+      }
+      calendarCache.set(cacheKey, { value, expires: now + CALENDAR_TTL_MS });
+      return value;
     } catch (e: any) {
       this.logger.warn(`contribution calendar failed: ${e?.message}`);
       return { totalContributions: 0, weeks: [] };

@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import styles from './Card.module.css';
 
-export function Card({
+function CardImpl({
   title,
   action,
   children,
@@ -23,3 +24,5 @@ export function Card({
     </section>
   );
 }
+
+export const Card = memo(CardImpl);

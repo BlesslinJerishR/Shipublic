@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import {
   RefreshCw,
@@ -12,12 +13,49 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/Card';
-import { ContributionGraph } from '@/components/ContributionGraph';
 import { Select } from '@/components/Select';
 import type { Commit, Project } from '@/lib/types';
 import styles from './project.module.css';
 
+// ContributionGraph hits the network and pulls in the Heatmap. Dynamically
+// import it so the initial route shell loads quicker; SSR off because it is
+// purely a client visualization.
+const ContributionGraph = dynamic(
+  () => import('@/components/ContributionGraph').then((m) => m.ContributionGraph),
+  { ssr: false, loading: () => <div style={{ opacity: 0.6 }}>Loading contributions…</div> },
+);
+
 function isoDate(d: Date) { return d.toISOString().substring(0, 10); }
+
+interface CommitRowProps {
+  commit: Commit;
+  selected: boolean;
+  onToggle: (sha: string) => void;
+}
+
+const CommitRow = memo(function CommitRow({ commit, selected, onToggle }: CommitRowProps) {
+  const handleClick = useCallback(() => onToggle(commit.sha), [commit.sha, onToggle]);
+  // Single-line subject is stable per commit; memoize formatting so re-render
+  // of the parent does not re-walk the message string.
+  const subject = useMemo(() => commit.message.split('\n')[0], [commit.message]);
+  const when = useMemo(() => new Date(commit.authoredAt).toLocaleString(), [commit.authoredAt]);
+  return (
+    <div className={styles.commitRow} onClick={handleClick}>
+      <span className={`${styles.checkbox} ${selected ? styles.checkboxOn : ''}`}>
+        {selected && <Check size={12} color="#fff" />}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className={styles.commitMsg} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {subject}
+        </div>
+        <div className={styles.commitMeta}>
+          {commit.authorName || 'unknown'} · {when}
+        </div>
+      </div>
+      <span className={styles.shaPill}>{commit.sha.substring(0, 7)}</span>
+    </div>
+  );
+});
 
 export default function ProjectDetail() {
   const params = useParams<{ id: string }>();
@@ -30,35 +68,39 @@ export default function ProjectDetail() {
     const d = new Date(); d.setDate(d.getDate() - 14); return isoDate(d);
   });
   const [to, setTo] = useState<string>(() => isoDate(new Date()));
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [platform, setPlatform] = useState<'TWITTER' | 'LINKEDIN' | 'GENERIC'>('LINKEDIN');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [, startTransition] = useTransition();
 
-  const loadAll = async () => {
+  // Avoid stale-state captures when filters change rapidly.
+  const fromRef = useRef(from); fromRef.current = from;
+  const toRef = useRef(to); toRef.current = to;
+
+  const loadAll = useCallback(async () => {
     const [p, cs] = await Promise.all([
       api.projects.get(id),
-      api.commits.list(id, { from, to, take: 100 }),
+      api.commits.list(id, { from: fromRef.current, to: toRef.current, take: 100 }),
     ]);
     setProject(p as Project);
     setCommits(cs as Commit[]);
-  };
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try { await loadAll(); } finally { setLoading(false); }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const reloadCommits = async () => {
-    const cs = await api.commits.list(id, { from, to, take: 100 });
-    setCommits(cs as Commit[]);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    loadAll().finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [loadAll]);
 
-  const sync = async () => {
+  const reloadCommits = useCallback(async () => {
+    const cs = await api.commits.list(id, { from, to, take: 100 });
+    startTransition(() => setCommits(cs as Commit[]));
+  }, [id, from, to]);
+
+  const sync = useCallback(async () => {
     setSyncing(true);
     try {
       await api.commits.sync(id, {
@@ -68,9 +110,9 @@ export default function ProjectDetail() {
       });
       await reloadCommits();
     } finally { setSyncing(false); }
-  };
+  }, [id, from, to, reloadCommits]);
 
-  const toggleSync = async () => {
+  const toggleSync = useCallback(async () => {
     if (!project) return;
     const next = !project.autoSync;
     try {
@@ -79,33 +121,52 @@ export default function ProjectDetail() {
     } catch (e: any) {
       alert(e?.message || 'Failed to toggle auto sync');
     }
-  };
+  }, [project]);
 
-  const toggleCommit = (sha: string) => {
-    const s = new Set(selected);
-    if (s.has(sha)) s.delete(sha); else s.add(sha);
-    setSelected(s);
-  };
-  const selectAll = () => setSelected(new Set(commits.map((c) => c.sha)));
-  const clearSel = () => setSelected(new Set());
+  // Stable callback so memoized CommitRow rows don't rerender on every parent update.
+  const toggleCommit = useCallback((sha: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(sha)) next.delete(sha); else next.add(sha);
+      return next;
+    });
+  }, []);
 
-  const generate = async (mode: 'selection' | 'range') => {
-    setGenerating(true);
-    try {
-      const body: any = { projectId: id, platform };
-      if (mode === 'selection') {
-        if (!selected.size) { alert('Select at least one commit'); setGenerating(false); return; }
-        body.commitShas = Array.from(selected);
-      } else {
-        body.rangeFrom = `${from}T00:00:00Z`;
-        body.rangeTo = `${to}T23:59:59Z`;
-      }
-      const post = await api.posts.generate(body);
-      router.push(`/dashboard/posts/${(post as any).id}`);
-    } catch (e: any) {
-      alert(e?.message || 'Failed to start generation');
-    } finally { setGenerating(false); }
-  };
+  const selectAll = useCallback(() => {
+    setSelected(new Set(commits.map((c) => c.sha)));
+  }, [commits]);
+  const clearSel = useCallback(() => setSelected(new Set()), []);
+
+  const generate = useCallback(
+    async (mode: 'selection' | 'range') => {
+      setGenerating(true);
+      try {
+        const body: any = { projectId: id, platform };
+        if (mode === 'selection') {
+          if (!selected.size) { alert('Select at least one commit'); setGenerating(false); return; }
+          body.commitShas = Array.from(selected);
+        } else {
+          body.rangeFrom = `${from}T00:00:00Z`;
+          body.rangeTo = `${to}T23:59:59Z`;
+        }
+        const post = await api.posts.generate(body);
+        router.push(`/dashboard/posts/${(post as any).id}`);
+      } catch (e: any) {
+        alert(e?.message || 'Failed to start generation');
+      } finally { setGenerating(false); }
+    },
+    [id, platform, selected, from, to, router],
+  );
+
+  // Memoize platform dropdown options so the Select doesn't see a fresh array.
+  const platformOptions = useMemo(
+    () => [
+      { value: 'GENERIC', label: 'Generic' },
+      { value: 'TWITTER', label: 'Twitter' },
+      { value: 'LINKEDIN', label: 'LinkedIn' },
+    ],
+    [],
+  );
 
   if (loading || !project) return <div style={{ opacity: 0.6 }}>Loading project</div>;
 
@@ -160,25 +221,14 @@ export default function ProjectDetail() {
               <button onClick={clearSel} disabled={!selected.size}>Clear ({selected.size})</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 540, overflowY: 'auto' }}>
-              {commits.map((c) => {
-                const on = selected.has(c.sha);
-                return (
-                  <div key={c.id} className={styles.commitRow} onClick={() => toggleCommit(c.sha)}>
-                    <span className={`${styles.checkbox} ${on ? styles.checkboxOn : ''}`}>
-                      {on && <Check size={12} color="#fff" />}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div className={styles.commitMsg} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.message.split('\n')[0]}
-                      </div>
-                      <div className={styles.commitMeta}>
-                        {c.authorName || 'unknown'} · {new Date(c.authoredAt).toLocaleString()}
-                      </div>
-                    </div>
-                    <span className={styles.shaPill}>{c.sha.substring(0, 7)}</span>
-                  </div>
-                );
-              })}
+              {commits.map((c) => (
+                <CommitRow
+                  key={c.id}
+                  commit={c}
+                  selected={selected.has(c.sha)}
+                  onToggle={toggleCommit}
+                />
+              ))}
               {commits.length === 0 && (
                 <div style={{ opacity: 0.6 }}>
                   No commits stored yet for this range. Click Sync from GitHub.
@@ -200,11 +250,7 @@ export default function ProjectDetail() {
                 <Select
                   value={platform}
                   onChange={(v) => setPlatform(v as any)}
-                  options={[
-                    { value: 'GENERIC', label: 'Generic' },
-                    { value: 'TWITTER', label: 'Twitter' },
-                    { value: 'LINKEDIN', label: 'LinkedIn' },
-                  ]}
+                  options={platformOptions}
                   fullWidth
                 />
               </div>

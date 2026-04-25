@@ -1,39 +1,42 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { Activity, FolderGit2, Sparkles, GitCommit } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useApi } from '@/lib/useApi';
 import { Card } from '@/components/Card';
 import { ContributionGraph } from '@/components/ContributionGraph';
 import type { Post, Project } from '@/lib/types';
 import styles from './overview.module.css';
 
 export default function OverviewPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [primaryProjectId, setPrimaryProjectId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: pLoading } = useApi<Project[]>(
+    'projects:list',
+    () => api.projects.list() as Promise<Project[]>,
+  );
+  const { data: posts = [], isLoading: postsLoading } = useApi<Post[]>(
+    'posts:list',
+    () => api.posts.list() as Promise<Post[]>,
+  );
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [pj, ps] = await Promise.all([api.projects.list(), api.posts.list()]);
-        setProjects(pj as Project[]);
-        setPosts(ps as Post[]);
-        const first = (pj as Project[])[0];
-        if (first) setPrimaryProjectId(first.id);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const loading = pLoading || postsLoading;
+
+  // Stable derived counters; recompute only when posts changes.
+  const counts = useMemo(() => {
+    let drafts = 0, scheduled = 0, published = 0;
+    for (const p of posts) {
+      if (p.status === 'DRAFT') drafts++;
+      else if (p.status === 'SCHEDULED') scheduled++;
+      else if (p.status === 'PUBLISHED') published++;
+    }
+    return { drafts, scheduled, published };
+  }, [posts]);
+
+  const recent = useMemo(() => posts.slice(0, 6), [posts]);
+  const primaryProjectId = projects[0]?.id ?? null;
 
   if (loading) return <div className={styles.muted}>Loading overview</div>;
-
-  const drafts = posts.filter((p) => p.status === 'DRAFT').length;
-  const scheduled = posts.filter((p) => p.status === 'SCHEDULED').length;
-  const published = posts.filter((p) => p.status === 'PUBLISHED').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -49,31 +52,31 @@ export default function OverviewPage() {
           <div className={styles.statLabel}>Drafts</div>
           <div className={styles.statValue}>
             <Sparkles size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-            <span className={styles.heroNum}>{drafts}</span>
+            <span className={styles.heroNum}>{counts.drafts}</span>
           </div>
         </div>
         <div className={styles.stat}>
           <div className={styles.statLabel}>Scheduled</div>
-          <div className={styles.statValue}>{scheduled}</div>
+          <div className={styles.statValue}>{counts.scheduled}</div>
         </div>
         <div className={styles.stat}>
           <div className={styles.statLabel}>Published</div>
-          <div className={styles.statValue}>{published}</div>
+          <div className={styles.statValue}>{counts.published}</div>
         </div>
       </div>
 
       <Card
         title="Recent posts"
         action={
-          <Link href="/dashboard/posts">
+          <Link href="/dashboard/posts" prefetch={false}>
             <button>View all</button>
           </Link>
         }
       >
         {posts.length === 0 && <div className={styles.muted}>No posts yet. Generate one from any project.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {posts.slice(0, 6).map((p) => (
-            <Link key={p.id} href={`/dashboard/posts/${p.id}`}>
+          {recent.map((p) => (
+            <Link key={p.id} href={`/dashboard/posts/${p.id}`} prefetch={false}>
               <div style={{
                 border: '1px solid rgba(var(--fgRgb), 0.10)',
                 padding: '10px 12px',
@@ -95,7 +98,7 @@ export default function OverviewPage() {
       <Card title="Projects">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
           {projects.map((p) => (
-            <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
+            <Link key={p.id} href={`/dashboard/projects/${p.id}`} prefetch={false}>
               <div style={{
                 border: '1px solid rgba(var(--fgRgb), 0.10)',
                 padding: 14,

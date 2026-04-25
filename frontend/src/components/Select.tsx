@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import styles from './Select.module.css';
 
@@ -10,7 +10,7 @@ export interface SelectOption {
   hint?: React.ReactNode;
 }
 
-export function Select({
+function SelectImpl({
   value,
   onChange,
   options,
@@ -38,7 +38,7 @@ export function Select({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  const current = options.find((o) => o.value === value);
+  const current = useMemo(() => options.find((o) => o.value === value), [options, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,20 +77,30 @@ export function Select({
     }
   }, [open, value, options]);
 
-  const cls = [
-    styles.wrap,
-    fullWidth ? styles.full : '',
-    disabled ? styles.disabled : '',
-    size === 'sm' ? styles.sm : '',
-    className || '',
-  ].filter(Boolean).join(' ');
+  const cls = useMemo(
+    () =>
+      [
+        styles.wrap,
+        fullWidth ? styles.full : '',
+        disabled ? styles.disabled : '',
+        size === 'sm' ? styles.sm : '',
+        className || '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    [fullWidth, disabled, size, className],
+  );
+
+  const onTriggerClick = useCallback(() => {
+    if (!disabled) setOpen((o) => !o);
+  }, [disabled]);
 
   return (
     <div className={cls} ref={wrapRef}>
       <button
         type="button"
         className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={onTriggerClick}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
@@ -134,3 +144,5 @@ export function Select({
     </div>
   );
 }
+
+export const Select = memo(SelectImpl);

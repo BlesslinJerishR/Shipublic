@@ -1,37 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, X, Search, Lock, Globe, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { invalidate, useApi } from '@/lib/useApi';
 import type { Project, RepoSummary } from '@/lib/types';
 import styles from './projects.module.css';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { data: projects = [], mutate: mutateProjects } = useApi<Project[]>(
+    'projects:list',
+    () => api.projects.list() as Promise<Project[]>,
+  );
   const [adding, setAdding] = useState(false);
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
   const [filter, setFilter] = useState('');
+  const deferredFilter = useDeferredValue(filter);
   const [busyId, setBusyId] = useState<number | null>(null);
-
-  const refresh = async () => {
-    setProjects((await api.projects.list()) as Project[]);
-  };
-  useEffect(() => { refresh(); }, []);
 
   const router = useRouter();
   const search = useSearchParams();
-  useEffect(() => {
-    if (search?.get('add') === '1') {
-      openAdd();
-      router.replace('/dashboard/projects');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
 
-  const openAdd = async () => {
+  const openAdd = useCallback(async () => {
     setAdding(true);
     setReposLoading(true);
     try {
@@ -40,29 +33,49 @@ export default function ProjectsPage() {
     } finally {
       setReposLoading(false);
     }
-  };
+  }, []);
 
-  const addRepo = async (r: RepoSummary) => {
-    setBusyId(r.id);
-    try {
-      await api.projects.add(r.id);
-      await refresh();
-      setAdding(false);
-    } finally {
-      setBusyId(null);
+  useEffect(() => {
+    if (search?.get('add') === '1') {
+      openAdd();
+      router.replace('/dashboard/projects');
     }
-  };
+  }, [search, router, openAdd]);
 
-  const remove = async (p: Project) => {
-    if (!confirm(`Remove ${p.fullName}?`)) return;
-    await api.projects.remove(p.id);
-    await refresh();
-  };
-
-  const filtered = repos.filter(
-    (r) => !filter || r.fullName.toLowerCase().includes(filter.toLowerCase()),
+  const addRepo = useCallback(
+    async (r: RepoSummary) => {
+      setBusyId(r.id);
+      try {
+        await api.projects.add(r.id);
+        await mutateProjects();
+        setAdding(false);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [mutateProjects],
   );
-  const linked = new Set(projects.map((p) => p.githubRepoId));
+
+  const remove = useCallback(
+    async (p: Project) => {
+      if (!confirm(`Remove ${p.fullName}?`)) return;
+      await api.projects.remove(p.id);
+      invalidate('projects:');
+      await mutateProjects();
+    },
+    [mutateProjects],
+  );
+
+  const filtered = useMemo(() => {
+    if (!deferredFilter) return repos;
+    const q = deferredFilter.toLowerCase();
+    return repos.filter((r) => r.fullName.toLowerCase().includes(q));
+  }, [repos, deferredFilter]);
+
+  const linked = useMemo(
+    () => new Set(projects.map((p) => p.githubRepoId)),
+    [projects],
+  );
 
   return (
     <div>
@@ -77,7 +90,7 @@ export default function ProjectsPage() {
         {projects.map((p) => (
           <div key={p.id} className={styles.row}>
             <div style={{ minWidth: 0 }}>
-              <Link href={`/dashboard/projects/${p.id}`} style={{ color: 'var(--fg)', fontWeight: 700 }}>
+              <Link href={`/dashboard/projects/${p.id}`} prefetch={false} style={{ color: 'var(--fg)', fontWeight: 700 }}>
                 {p.fullName}
               </Link>
               <div className={styles.repoMeta}>

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GithubService } from '../github/github.service';
 
@@ -14,9 +15,12 @@ export class CommitsService {
     projectId: string,
     opts: { since?: string; until?: string; perPage?: number; page?: number; branch?: string } = {},
   ) {
-    const project = await this.prisma.project.findFirst({ where: { id: projectId, userId } });
+    // Issue both lookups in parallel; they're independent.
+    const [project, user] = await Promise.all([
+      this.prisma.project.findFirst({ where: { id: projectId, userId } }),
+      this.prisma.user.findUnique({ where: { id: userId } }),
+    ]);
     if (!project) throw new NotFoundException('project');
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('user');
 
     const list = await this.github.listCommits(user.accessToken, project.owner, project.name, {
@@ -27,9 +31,19 @@ export class CommitsService {
       sha: opts.branch,
     });
 
-    const written = [] as any[];
-    for (const c of list) {
-      const up = await this.prisma.commit.upsert({
+    if (!list.length) {
+      await this.prisma.project.update({
+        where: { id: project.id },
+        data: { lastSyncedAt: new Date() },
+      });
+      return { synced: 0 };
+    }
+
+    // Run all upserts inside a single interactive transaction so the writes
+    // share one connection round-trip and a single commit. Previously this
+    // was a sequential await-in-loop, which serialized N round-trips.
+    const ops = list.map((c) =>
+      this.prisma.commit.upsert({
         where: { projectId_sha: { projectId: project.id, sha: c.sha } },
         create: {
           projectId: project.id,
@@ -47,9 +61,10 @@ export class CommitsService {
           authoredAt: new Date(c.authoredAt),
           url: c.url,
         },
-      });
-      written.push(up);
-    }
+      }),
+    );
+    const written = await this.prisma.$transaction(ops);
+
     await this.prisma.project.update({
       where: { id: project.id },
       data: { lastSyncedAt: new Date() },
@@ -62,44 +77,53 @@ export class CommitsService {
     projectId: string,
     opts: { from?: string; to?: string; take?: number; cursor?: string } = {},
   ) {
-    const project = await this.prisma.project.findFirst({ where: { id: projectId, userId } });
-    if (!project) throw new NotFoundException('project');
-    const where: any = { projectId };
+    // Verify ownership via a lightweight count instead of fetching the row.
+    const owns = await this.prisma.project.count({ where: { id: projectId, userId } });
+    if (!owns) throw new NotFoundException('project');
+
+    const where: Prisma.CommitWhereInput = { projectId };
     if (opts.from || opts.to) {
       where.authoredAt = {};
-      if (opts.from) where.authoredAt.gte = new Date(opts.from);
-      if (opts.to) where.authoredAt.lte = new Date(opts.to);
+      if (opts.from) (where.authoredAt as any).gte = new Date(opts.from);
+      if (opts.to) (where.authoredAt as any).lte = new Date(opts.to);
     }
-    const list = await this.prisma.commit.findMany({
+    return this.prisma.commit.findMany({
       where,
       orderBy: { authoredAt: 'desc' },
       take: Math.min(opts.take ?? 100, 200),
       ...(opts.cursor ? { skip: 1, cursor: { id: opts.cursor } } : {}),
     });
-    return list;
   }
 
   async getDailyAggregates(userId: string, projectId: string, from?: string, to?: string) {
-    const project = await this.prisma.project.findFirst({ where: { id: projectId, userId } });
-    if (!project) throw new NotFoundException('project');
-    const where: any = { projectId };
-    if (from || to) {
-      where.authoredAt = {};
-      if (from) where.authoredAt.gte = new Date(from);
-      if (to) where.authoredAt.lte = new Date(to);
-    }
-    const commits = await this.prisma.commit.findMany({ where, select: { authoredAt: true } });
-    const byDay = new Map<string, number>();
-    for (const c of commits) {
-      const d = c.authoredAt.toISOString().substring(0, 10);
-      byDay.set(d, (byDay.get(d) || 0) + 1);
-    }
-    return Array.from(byDay.entries()).map(([date, count]) => ({ date, count }));
+    const owns = await this.prisma.project.count({ where: { id: projectId, userId } });
+    if (!owns) throw new NotFoundException('project');
+
+    // Push the GROUP BY into Postgres instead of streaming every row to Node.
+    // This dramatically reduces network bytes and JS object allocation when
+    // a project has thousands of commits.
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const rows = await this.prisma.$queryRaw<{ date: string; count: bigint }[]>(
+      Prisma.sql`
+        SELECT TO_CHAR("authoredAt"::date, 'YYYY-MM-DD') AS date,
+               COUNT(*)::bigint AS count
+        FROM "Commit"
+        WHERE "projectId" = ${projectId}
+          AND (${fromDate}::timestamp IS NULL OR "authoredAt" >= ${fromDate})
+          AND (${toDate}::timestamp IS NULL OR "authoredAt" <= ${toDate})
+        GROUP BY 1
+        ORDER BY 1
+      `,
+    );
+    return rows.map((r) => ({ date: r.date, count: Number(r.count) }));
   }
 
   async ensureCommitDetail(userId: string, projectId: string, sha: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const project = await this.prisma.project.findFirst({ where: { id: projectId, userId } });
+    const [user, project] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.project.findFirst({ where: { id: projectId, userId } }),
+    ]);
     if (!user || !project) throw new NotFoundException();
     const existing = await this.prisma.commit.findUnique({
       where: { projectId_sha: { projectId: project.id, sha } },

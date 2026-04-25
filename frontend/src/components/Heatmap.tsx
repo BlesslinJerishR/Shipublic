@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import styles from './Heatmap.module.css';
 
 export interface HeatmapDay { date: string; count: number; }
@@ -24,7 +24,7 @@ function startOfDay(d: Date) {
   return x;
 }
 
-export function Heatmap({
+function HeatmapImpl({
   days,
   weeks,
   from,
@@ -158,3 +158,5 @@ export function Heatmap({
     </div>
   );
 }
+
+export const Heatmap = memo(HeatmapImpl);

@@ -30,20 +30,33 @@ export class PostsProcessor extends WorkerHost {
     const { postId, userId, projectId, shas, platform, tone } = job.data;
     this.logger.log(`Generating post ${postId} for ${shas.length} commits`);
     try {
-      const enriched = [];
-      for (const sha of shas.slice(0, 20)) {
-        const c = await this.commits.ensureCommitDetail(userId, projectId, sha);
-        enriched.push({
-          sha: c.sha,
-          message: c.message,
-          author: c.authorName,
-          authoredAt: c.authoredAt.toISOString(),
-          additions: c.additions,
-          deletions: c.deletions,
-          filesChanged: c.filesChanged,
-          diff: c.diffPreview ?? '',
-        });
-      }
+      // Fetch commit details with bounded concurrency. The previous version
+      // awaited each call sequentially, which serialized up to 20 GitHub API
+      // round-trips per post. We preserve the input order in the output.
+      const limited = shas.slice(0, 20);
+      const enriched: any[] = new Array(limited.length);
+      const concurrency = 4;
+      let cursor = 0;
+      const worker = async () => {
+        while (true) {
+          const i = cursor++;
+          if (i >= limited.length) return;
+          const c = await this.commits.ensureCommitDetail(userId, projectId, limited[i]);
+          enriched[i] = {
+            sha: c.sha,
+            message: c.message,
+            author: c.authorName,
+            authoredAt: c.authoredAt.toISOString(),
+            additions: c.additions,
+            deletions: c.deletions,
+            filesChanged: c.filesChanged,
+            diff: c.diffPreview ?? '',
+          };
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, limited.length) }, () => worker()),
+      );
       const summary = await this.ollama.summarizeCommits(enriched);
       const content = await this.ollama.polishToPost(summary, platform, tone);
       await this.prisma.post.update({
