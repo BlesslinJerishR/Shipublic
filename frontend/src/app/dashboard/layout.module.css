@@ -53,7 +53,31 @@
   border-color: rgba(255, 0, 79, 0.35);
 }
 
-.projectList { display: flex; flex-direction: column; gap: 2px; max-height: 40vh; overflow-y: auto; }
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 1rem;
+}
+
+.projectList { display: flex; flex-direction: column; gap: 2px; max-height: 40vh; overflow-y: auto; padding-top: 4px; }
+
+.projectsEmpty {
+  font-size: 12px;
+  color: rgba(var(--fgRgb), 0.5);
+  padding: 6px 10px;
+}
+
+.addProjectBtn {
+  border: 1px dashed rgba(var(--fgRgb), 0.25);
+  font-weight: 600;
+  background: rgba(var(--fgRgb), 0.02);
+}
+.addProjectBtn:hover {
+  background: rgba(255, 0, 79, 0.08);
+  border-color: rgba(255, 0, 79, 0.4);
+  color: var(--hero);
+}
 
 .main {
   display: flex;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, X, Search, Lock, Globe, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Project, RepoSummary } from '@/lib/types';
@@ -19,6 +20,16 @@ export default function ProjectsPage() {
     setProjects((await api.projects.list()) as Project[]);
   };
   useEffect(() => { refresh(); }, []);
+
+  const router = useRouter();
+  const search = useSearchParams();
+  useEffect(() => {
+    if (search?.get('add') === '1') {
+      openAdd();
+      router.replace('/dashboard/projects');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const openAdd = async () => {
     setAdding(true);

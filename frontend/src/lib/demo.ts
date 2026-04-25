@@ -20,6 +20,7 @@ import type {
   RepoSummary,
   User,
 } from './types';
+import { appendSignature, DEFAULT_SIGNATURE, getSettings } from './settings';
 
 export const DEMO_USERNAME = 'blessl.in';
 export const DEMO_PASSWORD = 'blessl.in';
@@ -92,7 +93,7 @@ function rand(seed: number) {
   return x - Math.floor(x);
 }
 
-function buildCommits(projectId: string, repoFull: string, count = 60): Commit[] {
+function buildCommits(projectId: string, repoFull: string, count = 240): Commit[] {
   const authors = [
     { name: 'Blesslin Jerish R', email: 'hello@blessl.in' },
     { name: 'Demo Bot', email: 'demo@blessl.in' },
@@ -115,6 +116,8 @@ function buildCommits(projectId: string, repoFull: string, count = 60): Commit[]
     'feat(api): rate limit /posts/generate per user',
   ];
   const out: Commit[] = [];
+  // Spread commits across roughly 3 years to make the year tabs meaningful.
+  const spanDays = 3 * 365;
   for (let i = 0; i < count; i++) {
     const r = rand(i + projectId.length);
     const adds = Math.floor(r * 240) + 5;
@@ -124,7 +127,9 @@ function buildCommits(projectId: string, repoFull: string, count = 60): Commit[]
       (Math.floor(rand(i + 31) * 0xffffffff)).toString(16).padStart(8, '0') +
       (Math.floor(rand(i + 53) * 0xffffffff)).toString(16).padStart(8, '0');
     const author = authors[i % authors.length];
-    const daysAgo = Math.floor(i / 2) + Math.floor(rand(i) * 2);
+    // Bias slightly toward more recent days so the current year is denser.
+    const skew = Math.pow(rand(i * 7 + 13), 1.6);
+    const daysAgo = Math.floor(skew * spanDays);
     out.push({
       id: `${projectId}-c-${i}`,
       projectId,
@@ -145,6 +150,8 @@ function buildCommits(projectId: string, repoFull: string, count = 60): Commit[]
       summary: null,
     });
   }
+  // Sort newest first to mirror real GitHub commit listings.
+  out.sort((a, b) => (a.authoredAt < b.authoredAt ? 1 : -1));
   return out;
 }
 
@@ -237,7 +244,7 @@ function buildPosts(projects: Project[]): Post[] {
         userId: 'demo-user-1',
         projectId: project.id,
         title: s.title,
-        content: s.content,
+        content: appendSignature(s.content, DEFAULT_SIGNATURE),
         summary: s.summary,
         platform: s.platform,
         status: s.status,
@@ -363,21 +370,31 @@ function readBody<T = any>(init: RequestInit): T | null {
   try { return JSON.parse(init.body as string) as T; } catch { return null; }
 }
 
-function buildContributions(commits: Commit[]): ContributionCalendar {
+function buildContributions(commits: Commit[], from?: string | null, to?: string | null): ContributionCalendar {
   const buckets = new Map<string, number>();
   for (const c of commits) {
     const key = c.authoredAt.substring(0, 10);
     buckets.set(key, (buckets.get(key) || 0) + 1);
   }
-  // Build 26 weeks ending today, Sunday-aligned
+
   const today = new Date();
-  const start = new Date(today);
-  start.setDate(today.getDate() - (26 * 7 - 1));
-  while (start.getDay() !== 0) start.setDate(start.getDate() - 1);
+  let end = to ? new Date(to) : today;
+  if (end > today) end = today;
+  let start: Date;
+  if (from) {
+    start = new Date(from);
+  } else {
+    start = new Date(end);
+    start.setDate(end.getDate() - (52 * 7 - 1));
+  }
+  // Sunday-align grid start.
+  while (start.getUTCDay() !== 0) start.setUTCDate(start.getUTCDate() - 1);
+
   const weeks: ContributionCalendar['weeks'] = [];
   const cur = new Date(start);
   let total = 0;
-  for (let w = 0; w < 27; w++) {
+  let safety = 0;
+  while (cur <= end && safety < 60) {
     const days = [];
     for (let d = 0; d < 7; d++) {
       const iso = cur.toISOString().substring(0, 10);
@@ -392,10 +409,10 @@ function buildContributions(commits: Commit[]): ContributionCalendar {
           count < 4 ? 'rgba(255,0,79,0.5)' :
           count < 7 ? 'rgba(255,0,79,0.75)' : 'rgba(255,0,79,1)',
       });
-      cur.setDate(cur.getDate() + 1);
+      cur.setUTCDate(cur.getUTCDate() + 1);
     }
     weeks.push({ contributionDays: days });
-    if (cur > today) break;
+    safety++;
   }
   return { totalContributions: total, weeks };
 }
@@ -465,7 +482,7 @@ export async function handleDemoRequest(rawPath: string, init: RequestInit = {})
   if (contribMatch && method === 'GET') {
     const id = contribMatch[1];
     const commits = s.commitsByProject[id] || [];
-    return delay(buildContributions(commits));
+    return delay(buildContributions(commits, params.get('from'), params.get('to')));
   }
 
   // ---- Commits ----
@@ -524,15 +541,17 @@ export async function handleDemoRequest(rawPath: string, init: RequestInit = {})
     const id = `${projId}-post-gen-${Date.now()}`;
     const platform = (body?.platform || 'GENERIC') as Post['platform'];
     const shas: string[] = body?.commitShas || [];
+    const settings = getSettings();
+    const baseContent =
+      `Just shipped on ${proj.name}.\n\n` +
+      `${shas.length ? `Reviewed ${shas.length} commit${shas.length > 1 ? 's' : ''} with the hybrid Ollama pipeline.` : 'Range based generation across the latest activity.'}\n\n` +
+      `Highlights:\n• Cleaner diff handling\n• Faster post generation\n• Better story style voice\n\nBuilt locally. Zero cloud cost.`;
     const post: Post = {
       id,
       userId: 'demo-user-1',
       projectId: projId,
       title: 'Generated draft (demo)',
-      content:
-        `Just shipped on ${proj.name}.\n\n` +
-        `${shas.length ? `Reviewed ${shas.length} commit${shas.length > 1 ? 's' : ''} with the hybrid Ollama pipeline.` : 'Range based generation across the latest activity.'}\n\n` +
-        `Highlights:\n• Cleaner diff handling\n• Faster post generation\n• Better story style voice\n\nBuilt locally. Zero cloud cost.`,
+      content: settings.signatureEnabled ? appendSignature(baseContent, settings.signature) : baseContent,
       summary:
         '- Coder model summarized the diffs into structured changes\n- Chat model rewrote the summary for ' + platform.toLowerCase() + '\n- Demo data only — no real Ollama call was made',
       platform,
@@ -542,7 +561,7 @@ export async function handleDemoRequest(rawPath: string, init: RequestInit = {})
       commitShas: shas,
       rangeFrom: body?.rangeFrom || null,
       rangeTo: body?.rangeTo || null,
-      metadata: { generated: true, demo: true },
+      metadata: { generated: true, demo: true, signatureApplied: settings.signatureEnabled },
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };

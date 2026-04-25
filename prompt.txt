@@ -150,3 +150,16 @@ username : blessl.in
 password : blessl.in
 
 make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
+
+1. In /dashboard/projects/PROJECT_NAME Apply button alignment / position is not correct fix
+2. In left side bar 
+2.1 move "+ Add Project" button to top under "My Projects". Add Project button should be fixed it should not in scroll like multiple projects
+2.2 Add Project button in left side bar not working. fix
+2.3 under "workspace" and "My Projects" add padding bottom 1rem
+3. All the select dropdowns should use our own "custom select dropdown" matching our theme. it should be smooth, clean and minimalistic 
+4. bottom line of every generated final post add a default signature line
+"Auto build in public post crafted by @shipublic"
+Have a option to edit the custom signature inside web app too
+5. Isn't the contribution graph last 365 days ? or current year
+Have same like Github
+Last 365, current year and all the past years as a button and it should be dynamic same like Github

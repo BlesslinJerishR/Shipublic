@@ -6,7 +6,8 @@
 .repoName { font-weight: 800; font-size: 22px; }
 .repoMeta { font-size: 13px; opacity: 0.7; }
 
-.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.toolbar > button { height: 38px; align-self: flex-end; }
 
 .toggle {
   display: inline-flex; align-items: center; gap: 8px;
@@ -48,6 +49,8 @@
 }
 .checkboxOn { background: var(--hero); border-color: var(--hero); }
 
-.dateRow { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.dateRow { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.field input, .field button { height: 38px; box-sizing: border-box; }
+.field button { white-space: nowrap; }
 .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.6; }

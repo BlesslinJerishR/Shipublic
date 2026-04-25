@@ -14,6 +14,7 @@ import {
   Plus,
   Play,
   X,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTheme } from '@/lib/theme';
@@ -90,7 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className={styles.brandDot} /> Shipublic
         </div>
 
-        <div>
+        <div className={styles.section}>
           <div className={styles.navTitle}>Workspace</div>
           <Link className={`${styles.navItem} ${isActive('/dashboard') && path === '/dashboard' ? styles.navActive : ''}`} href="/dashboard">
             <LayoutDashboard size={16} /> Overview
@@ -104,10 +105,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link className={`${styles.navItem} ${isActive('/dashboard/posts') ? styles.navActive : ''}`} href="/dashboard/posts">
             <Sparkles size={16} /> Posts
           </Link>
+          <Link className={`${styles.navItem} ${isActive('/dashboard/settings') ? styles.navActive : ''}`} href="/dashboard/settings">
+            <SettingsIcon size={16} /> Settings
+          </Link>
         </div>
 
-        <div>
+        <div className={styles.section}>
           <div className={styles.navTitle}>My projects</div>
+          <Link
+            className={`${styles.navItem} ${styles.addProjectBtn}`}
+            href="/dashboard/projects?add=1"
+          >
+            <Plus size={14} /> Add project
+          </Link>
           <div className={styles.projectList}>
             {projects.map((p) => (
               <Link
@@ -122,9 +132,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </span>
               </Link>
             ))}
-            <Link className={styles.navItem} href="/dashboard/projects">
-              <Plus size={14} /> Add project
-            </Link>
+            {projects.length === 0 && (
+              <div className={styles.projectsEmpty}>No projects yet.</div>
+            )}
           </div>
         </div>
 

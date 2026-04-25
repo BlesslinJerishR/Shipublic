@@ -16,3 +16,32 @@
 .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.65; }
 .statusBadge { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(var(--fgRgb), 0.2); font-size: 11px; }
 .statusOn { color: var(--hero); border-color: rgba(255, 0, 79, 0.5); background: rgba(255, 0, 79, 0.10); }
+
+.signatureBar {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed rgba(var(--fgRgb), 0.18);
+  border-radius: 8px;
+  background: rgba(var(--fgRgb), 0.03);
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+.signatureLabel {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(var(--fgRgb), 0.55);
+}
+.signatureText { flex: 1; min-width: 0; color: rgba(var(--fgRgb), 0.85); }
+.signatureEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--hero);
+  font-weight: 600;
+  font-size: 12px;
+}
+.signatureEdit:hover { text-decoration: underline; }

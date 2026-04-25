@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   RefreshCw,
@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/Card';
-import { Heatmap } from '@/components/Heatmap';
+import { ContributionGraph } from '@/components/ContributionGraph';
+import { Select } from '@/components/Select';
 import type { Commit, Project } from '@/lib/types';
 import styles from './project.module.css';
 
@@ -25,7 +26,6 @@ export default function ProjectDetail() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [commits, setCommits] = useState<Commit[]>([]);
-  const [contrib, setContrib] = useState<{ date: string; count: number }[]>([]);
   const [from, setFrom] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() - 14); return isoDate(d);
   });
@@ -43,13 +43,6 @@ export default function ProjectDetail() {
     ]);
     setProject(p as Project);
     setCommits(cs as Commit[]);
-    try {
-      const cal = await api.projects.contributions(id, `${from}T00:00:00Z`, `${to}T23:59:59Z`);
-      const days = (cal as any).weeks.flatMap((w: any) =>
-        w.contributionDays.map((d: any) => ({ date: d.date, count: d.contributionCount })),
-      );
-      setContrib(days);
-    } catch {}
   };
 
   useEffect(() => {
@@ -114,8 +107,6 @@ export default function ProjectDetail() {
     } finally { setGenerating(false); }
   };
 
-  const heatmap = useMemo(() => contrib, [contrib]);
-
   if (loading || !project) return <div style={{ opacity: 0.6 }}>Loading project</div>;
 
   return (
@@ -151,10 +142,16 @@ export default function ProjectDetail() {
                   <span className={styles.label}>To</span>
                   <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                 </div>
-                <button onClick={reloadCommits}>Apply</button>
-                <button onClick={sync} disabled={syncing} title="Pull latest from GitHub">
-                  <RefreshCw size={14} /> {syncing ? 'Syncing' : 'Sync from GitHub'}
-                </button>
+                <div className={styles.field}>
+                  <span className={styles.label}>&nbsp;</span>
+                  <button onClick={reloadCommits}>Apply</button>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>&nbsp;</span>
+                  <button onClick={sync} disabled={syncing} title="Pull latest from GitHub">
+                    <RefreshCw size={14} /> {syncing ? 'Syncing' : 'Sync from GitHub'}
+                  </button>
+                </div>
               </div>
             }
           >
@@ -191,7 +188,7 @@ export default function ProjectDetail() {
           </Card>
 
           <Card title="Contributions">
-            {heatmap.length ? <Heatmap days={heatmap} weeks={26} /> : <div style={{ opacity: 0.6 }}>Loading heatmap.</div>}
+            <ContributionGraph projectId={id} />
           </Card>
         </div>
 
@@ -200,11 +197,16 @@ export default function ProjectDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className={styles.field}>
                 <span className={styles.label}>Platform</span>
-                <select value={platform} onChange={(e) => setPlatform(e.target.value as any)}>
-                  <option value="GENERIC">Generic</option>
-                  <option value="TWITTER">Twitter</option>
-                  <option value="LINKEDIN">LinkedIn</option>
-                </select>
+                <Select
+                  value={platform}
+                  onChange={(v) => setPlatform(v as any)}
+                  options={[
+                    { value: 'GENERIC', label: 'Generic' },
+                    { value: 'TWITTER', label: 'Twitter' },
+                    { value: 'LINKEDIN', label: 'LinkedIn' },
+                  ]}
+                  fullWidth
+                />
               </div>
               <button
                 className="heroBtn"

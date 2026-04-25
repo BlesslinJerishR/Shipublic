@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Save,
@@ -11,9 +12,18 @@ import {
   Copy,
   Check,
   ArrowLeft,
+  Pencil,
 } from 'lucide-react';
 import { Card } from '@/components/Card';
+import { Select } from '@/components/Select';
 import { api } from '@/lib/api';
+import {
+  appendSignature,
+  getSettings,
+  onSettingsChange,
+  stripSignature,
+  type UserSettings,
+} from '@/lib/settings';
 import type { Post } from '@/lib/types';
 import styles from './post.module.css';
 
@@ -27,12 +37,28 @@ export default function PostDetail() {
   const [scheduledFor, setScheduledFor] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [settings, setSettings] = useState<UserSettings>(() => getSettings());
   const pollRef = useRef<any>(null);
+
+  useEffect(() => {
+    const off = onSettingsChange((s) => setSettings(s));
+    return () => { off(); };
+  }, []);
+
+  /**
+   * The textarea holds the *body* of the post (without signature). The
+   * signature is rendered as a non-editable footer line so users can never
+   * accidentally lose it but can still customise it via Settings.
+   */
+  const bodyForApi = settings.signatureEnabled
+    ? appendSignature(content, settings.signature)
+    : stripSignature(content, settings.signature);
 
   const load = async () => {
     const p = (await api.posts.get(id)) as Post;
     setPost(p);
-    setContent(p.content || '');
+    // Strip any trailing signature so the editor only shows the body.
+    setContent(stripSignature(p.content || '', getSettings().signature));
     setPlatform(p.platform);
     setScheduledFor(p.scheduledFor ? p.scheduledFor.substring(0, 16) : '');
     if (p.metadata?.generating) {
@@ -50,7 +76,7 @@ export default function PostDetail() {
     setSaving(true);
     try {
       const updated = await api.posts.update(id, {
-        content,
+        content: bodyForApi,
         platform,
         scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
       });
@@ -81,7 +107,7 @@ export default function PostDetail() {
   };
 
   const copy = async () => {
-    await navigator.clipboard.writeText(content);
+    await navigator.clipboard.writeText(bodyForApi);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -115,18 +141,32 @@ export default function PostDetail() {
               disabled={generating}
             />
             <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
-              {content.length} characters
+              {bodyForApi.length} characters
             </div>
+            {settings.signatureEnabled && (
+              <div className={styles.signatureBar} aria-label="Auto signature">
+                <span className={styles.signatureLabel}>Signature</span>
+                <span className={styles.signatureText}>{settings.signature}</span>
+                <Link href="/dashboard/settings" className={styles.signatureEdit} title="Edit signature">
+                  <Pencil size={12} /> edit
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className={styles.row} style={{ marginTop: 12 }}>
-            <div>
+            <div style={{ minWidth: 180 }}>
               <div className={styles.label}>Platform</div>
-              <select value={platform} onChange={(e) => setPlatform(e.target.value as any)}>
-                <option value="GENERIC">Generic</option>
-                <option value="TWITTER">Twitter</option>
-                <option value="LINKEDIN">LinkedIn</option>
-              </select>
+              <Select
+                value={platform}
+                onChange={(v) => setPlatform(v as any)}
+                options={[
+                  { value: 'GENERIC', label: 'Generic' },
+                  { value: 'TWITTER', label: 'Twitter' },
+                  { value: 'LINKEDIN', label: 'LinkedIn' },
+                ]}
+                fullWidth
+              />
             </div>
             <div style={{ flex: 1 }}>
               <div className={styles.label}>Scheduled for</div>

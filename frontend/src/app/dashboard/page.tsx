@@ -5,14 +5,14 @@ import Link from 'next/link';
 import { Activity, FolderGit2, Sparkles, GitCommit } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/Card';
-import { Heatmap } from '@/components/Heatmap';
+import { ContributionGraph } from '@/components/ContributionGraph';
 import type { Post, Project } from '@/lib/types';
 import styles from './overview.module.css';
 
 export default function OverviewPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [calendar, setCalendar] = useState<{ date: string; count: number }[]>([]);
+  const [primaryProjectId, setPrimaryProjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,16 +21,8 @@ export default function OverviewPage() {
         const [pj, ps] = await Promise.all([api.projects.list(), api.posts.list()]);
         setProjects(pj as Project[]);
         setPosts(ps as Post[]);
-        if ((pj as Project[]).length) {
-          const first = (pj as Project[])[0];
-          try {
-            const cal = await api.projects.contributions(first.id);
-            const days = (cal as any).weeks.flatMap((w: any) =>
-              w.contributionDays.map((d: any) => ({ date: d.date, count: d.contributionCount })),
-            );
-            setCalendar(days);
-          } catch {}
-        }
+        const first = (pj as Project[])[0];
+        if (first) setPrimaryProjectId(first.id);
       } finally {
         setLoading(false);
       }
@@ -72,8 +64,8 @@ export default function OverviewPage() {
 
       <div className={styles.grid}>
         <Card title="Your GitHub activity">
-          {calendar.length ? (
-            <Heatmap days={calendar} weeks={26} />
+          {primaryProjectId ? (
+            <ContributionGraph projectId={primaryProjectId} />
           ) : (
             <div className={styles.muted}>Add a project to see contributions.</div>
           )}
