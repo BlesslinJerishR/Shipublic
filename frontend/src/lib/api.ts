@@ -3,6 +3,8 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:4000';
 
+import { handleDemoRequest, isDemoMode } from './demo';
+
 export class ApiError extends Error {
   status: number;
   body: any;
@@ -14,6 +16,9 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+  if (isDemoMode()) {
+    return (await handleDemoRequest(path, init)) as T;
+  }
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const res = await fetch(url, {
     credentials: 'include',
