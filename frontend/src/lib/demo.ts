@@ -361,8 +361,16 @@ function parseUrl(path: string) {
   return { path: p, params };
 }
 
+function cloneDemoValue<T>(value: T): T {
+  if (value == null || typeof value !== 'object') return value;
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 async function delay<T>(value: T, ms = 120): Promise<T> {
-  return new Promise((res) => setTimeout(() => res(value), ms));
+  return new Promise((res) => setTimeout(() => res(cloneDemoValue(value)), ms));
 }
 
 function readBody<T = any>(init: RequestInit): T | null {
