@@ -133,3 +133,20 @@ White Background + Black color for text content + Hero Color
 
 Black Background : #1D1E21
 Hero Color : #FF004F
+
+1. move the landing page index.html to the nextJS application root . in NextJS root landing page this landing page should load
+
+2. From Landing page if both the Demo button (navbar)+ Free Demo button (hero) is clicked it should load (remove current dummy alert)
+
+# FREE DEMO 
+
+# WITHOUT BACKEND ONLY STANDALONE FRONTEND FOR ONLY ONE SPECIFIC USERNAME AND PASSWORD
+
+Analyze my application completely and create a free demo account with dummy demo data and mock API. It should look like using real application but only on read only. all the destructive actions of CRUD should be disabled.  But all the buttons should work with demo data. except read and view only. On clicking Free Demo from the root landing page button it should take me directly to the application with demo and mock data / mock API. I want to view everything same like real user/admin.
+
+credentials to user and default auto fill in login screen
+
+username : blessl.in
+password : blessl.in
+
+make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
