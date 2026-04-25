@@ -826,7 +826,7 @@ Where Shipublic gives up ground today:
 
 ## 22. License
 
-[AGPL v3.0-or-later](LICENSE). Local-first; the hosted offering will be
+[AGPL v3.0](LICENSE). Local-first; the hosted offering will be
 optional and additive. The self-hosted experience is and remains the
 canonical one.
 
