@@ -1,9 +1,11 @@
-export const API_BASE =
-  (typeof window !== 'undefined' && (window as any).__API_BASE) ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:4000';
-
 import { handleDemoRequest, isDemoMode } from './demo';
+
+const browserApiBase =
+  typeof window !== 'undefined'
+    ? ((window as any).__API_BASE || process.env.NEXT_PUBLIC_API_URL || window.location.origin)
+    : null;
+
+export const API_BASE = (browserApiBase || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
 export class ApiError extends Error {
   status: number;
