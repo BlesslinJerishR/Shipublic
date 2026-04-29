@@ -71,13 +71,15 @@ export class PostsProcessor extends WorkerHost {
           metadata: { tone, generating: false, completedAt: new Date().toISOString() },
         },
       });
-      // Page 1: text-on-default-background image. Failures are swallowed
+      // Page 2: text-on-default-background image. Failures are swallowed
       // inside the gallery service so the post still succeeds.
       await this.gallery.autoGenerateForPost(userId, postId);
 
-      // Page 2: optional AI-generated illustration via ComfyUI. Stored as a
-      // SEPARATE GalleryImage row (kind='AI_IMAGE') — never composited into
-      // page 1. Skipped silently when COMFYUI_BASE_URL is not configured.
+      // Page 1: optional AI-generated illustration via ComfyUI. Stored as a
+      // SEPARATE GalleryImage row (kind='AI_IMAGE', spec.page=1) — never
+      // composited into page 2. This is the cover/hero image and is shown
+      // first in every UI surface (preview, PDF, ZIP). Skipped silently
+      // when COMFYUI_BASE_URL is not configured.
       if (this.comfy.available) {
         try {
           const headline = (content.split('\n').find((l) => l.trim().length > 0) || content || '').trim();

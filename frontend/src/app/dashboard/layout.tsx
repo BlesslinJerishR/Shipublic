@@ -17,6 +17,7 @@ import {
   Plus,
   Play,
   X,
+  Menu,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -32,6 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { theme, toggle } = useTheme();
   const [demo, setDemo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   const { data: user, error: meError, isLoading: meLoading } = useApi<User>(
     'auth:me',
@@ -56,6 +58,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     });
     return () => { off(); };
   }, []);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setNavOpen(false);
+  }, [path]);
+
+  // Close drawer on escape; lock body scroll while open
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [navOpen]);
+
+  // Auto-close drawer when viewport grows past breakpoint
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 901px)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setNavOpen(false);
+    };
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+
+  const closeNav = useCallback(() => setNavOpen(false), []);
 
   const isActive = useCallback(
     (p: string) => path === p || (path?.startsWith(p + '/') ?? false),
@@ -88,9 +122,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={styles.shell}>
-      <aside className={styles.side}>
-        <div className={styles.brand}>
-          <span className={styles.brandDot} /> Shipublic
+      <div
+        className={`${styles.backdrop} ${navOpen ? styles.backdropVisible : ''}`}
+        onClick={closeNav}
+        aria-hidden={!navOpen}
+      />
+      <aside
+        id="dashboard-side-nav"
+        className={`${styles.side} ${navOpen ? styles.sideOpen : ''}`}
+        aria-label="Primary navigation"
+      >
+        <div className={styles.brandRow}>
+          <div className={styles.brand}>
+            <span className={styles.brandDot} /> Shipublic
+          </div>
+          <button
+            type="button"
+            className={styles.sideClose}
+            onClick={closeNav}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className={styles.section}>
@@ -200,7 +253,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
         <header className={styles.topbar}>
-          <div style={{ fontWeight: 700, letterSpacing: 0.2 }}>Dashboard</div>
+          <div className={styles.topbarLeft}>
+            <button
+              type="button"
+              className={styles.hamburger}
+              onClick={() => setNavOpen((v) => !v)}
+              aria-label="Open navigation"
+              aria-expanded={navOpen}
+              aria-controls="dashboard-side-nav"
+            >
+              <Menu size={20} />
+            </button>
+            <div className={styles.topbarTitle}>Dashboard</div>
+          </div>
           <div className={styles.userBox}>
             {user?.avatarUrl && (
               <Image

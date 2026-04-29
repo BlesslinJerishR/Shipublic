@@ -354,3 +354,20 @@ Sources cards Ui/Ux is not right. Fix. Ui Bug screenshot attached
 
 make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
 
+1. For mobile screens the app inside navigation is messed up. Implement a hambuger menu with side bar options / do whatever layout is best for user experience for mobile. make it enterprise grade level for mobile screens. 
+
+2. In Landing page
+
+2.1 Footer add in center 
+
+vibe coded with (Hero color heart lucide icon) by blessl.in (Hero Red color, on click should goes to https://blessl.in)
+
+2.2 x (formerly twitter ) icon is not showing fix
+Link : https://x.com/blesslinjerish
+
+2.3 Add Linkedin icon also in landing page footer bottom
+
+https://www.linkedin.com/in/blesslinjerish
+
+make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
+

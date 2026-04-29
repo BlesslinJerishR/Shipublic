@@ -229,13 +229,33 @@ export class GalleryService implements OnModuleInit {
   // -------------------------------------------------------------------------
 
   async listImages(userId: string, opts: { postId?: string } = {}) {
-    return this.prisma.galleryImage.findMany({
+    const rows = await this.prisma.galleryImage.findMany({
       where: {
         userId,
         ...(opts.postId ? { postId: opts.postId } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
+    });
+    // Deterministic page order per post:
+    //   page 1 = AI_IMAGE (ComfyUI)
+    //   page 2 = POST       (text on background)
+    // The DB createdAt-desc fallback already produces this order in the
+    // happy path (AI image is saved after the text composite), but we sort
+    // explicitly here so the contract holds even when rows are re-rendered
+    // out of order, which is critical for PDF/ZIP downloads grouped per post.
+    const pageOf = (img: typeof rows[number]) => {
+      const spec: any = img.spec || {};
+      if (typeof spec.page === 'number') return spec.page;
+      return spec.kind === 'AI_IMAGE' ? 1 : 2;
+    };
+    return rows.sort((a, b) => {
+      if (a.postId && b.postId && a.postId === b.postId) {
+        const pa = pageOf(a);
+        const pb = pageOf(b);
+        if (pa !== pb) return pa - pb;
+      }
+      return a.createdAt < b.createdAt ? 1 : -1;
     });
   }
 
@@ -349,7 +369,7 @@ export class GalleryService implements OnModuleInit {
           width: result.width,
           height: result.height,
           sizeBytes: result.png.length,
-          spec: spec as any,
+          spec: { ...(spec as any), kind: 'POST', page: 2 },
           status: 'READY',
         },
       });
@@ -367,7 +387,7 @@ export class GalleryService implements OnModuleInit {
           width: spec.width,
           height: spec.height,
           sizeBytes: 0,
-          spec: spec as any,
+          spec: { ...(spec as any), kind: 'POST', page: 2 },
           status: 'FAILED',
         },
       });
@@ -414,6 +434,8 @@ export class GalleryService implements OnModuleInit {
     const abs = path.join(this.storageDir, 'images', img.filename);
     await fs.writeFile(abs, result.png);
 
+    const priorKind = (img.spec as any)?.kind === 'AI_IMAGE' ? 'AI_IMAGE' : 'POST';
+    const priorPage = (img.spec as any)?.page ?? (priorKind === 'AI_IMAGE' ? 1 : 2);
     return this.prisma.galleryImage.update({
       where: { id: img.id },
       data: {
@@ -421,7 +443,7 @@ export class GalleryService implements OnModuleInit {
         width: result.width,
         height: result.height,
         sizeBytes: result.png.length,
-        spec: spec as any,
+        spec: { ...(spec as any), kind: priorKind, page: priorPage },
         status: 'READY',
       },
     });
@@ -497,6 +519,7 @@ export class GalleryService implements OnModuleInit {
           // plus a marker the frontend can switch on.
           spec: {
             kind: 'AI_IMAGE',
+            page: 1,
             ratio,
             label: (label || '').slice(0, 200),
             generatedBy: 'comfyui',
@@ -509,5 +532,161 @@ export class GalleryService implements OnModuleInit {
         `saveAiImageForPost failed for post ${postId}: ${err?.message}`,
       );
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Bundled downloads (PDF + ZIP)
+  //
+  // The two render passes for a post are exposed as a single artifact so the
+  // user can grab "everything for this story" in one click. PDF concatenates
+  // the pages in canonical order (page 1 = AI image, page 2 = text + bg).
+  // ZIP groups by postId so multi-post bundles stay organized.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Resolve the ordered, ready-to-render pages for a single post. Throws
+   * NotFoundException if the post has no usable images yet.
+   */
+  private async loadPostPages(userId: string, postId: string) {
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, userId },
+    });
+    if (!post) throw new NotFoundException('post');
+    const images = await this.listImages(userId, { postId });
+    const ready = images.filter((i) => i.status === 'READY');
+    if (!ready.length) throw new NotFoundException('no images for post');
+    const pages: Array<{
+      page: number;
+      kind: 'AI_IMAGE' | 'POST';
+      bytes: Buffer;
+      mime: string;
+      width: number;
+      height: number;
+      filename: string;
+    }> = [];
+    for (const img of ready) {
+      const spec: any = img.spec || {};
+      const kind: 'AI_IMAGE' | 'POST' =
+        spec.kind === 'AI_IMAGE' ? 'AI_IMAGE' : 'POST';
+      const page = typeof spec.page === 'number'
+        ? spec.page
+        : (kind === 'AI_IMAGE' ? 1 : 2);
+      try {
+        const { data, mime } = await this.readImageBytes(userId, img.id);
+        const ext = mime === 'image/jpeg' ? 'jpg' : (mime === 'image/webp' ? 'webp' : 'png');
+        pages.push({
+          page,
+          kind,
+          bytes: data,
+          mime,
+          width: img.width,
+          height: img.height,
+          filename: `page-${page}-${kind === 'AI_IMAGE' ? 'ai' : 'post'}.${ext}`,
+        });
+      } catch (err: any) {
+        this.logger.warn(
+          `loadPostPages: skip image ${img.id}: ${err?.message}`,
+        );
+      }
+    }
+    pages.sort((a, b) => a.page - b.page);
+    if (!pages.length) throw new NotFoundException('no readable image bytes');
+    const slug = (post.title || post.id || 'post')
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .slice(0, 60) || post.id;
+    return { post, pages, slug };
+  }
+
+  /**
+   * Build a multi-page PDF for a single post. Pages are sized 1:1 to the
+   * source image so no resampling occurs (PNG/JPG embedded as-is).
+   */
+  async buildPostPdf(userId: string, postId: string): Promise<{ data: Buffer; filename: string }> {
+    // Lazy require so the heavyish PDF lib isn't pulled into cold-start.
+    const { PDFDocument } = await import('pdf-lib');
+    const { pages, slug } = await this.loadPostPages(userId, postId);
+
+    const pdf = await PDFDocument.create();
+    pdf.setTitle(`Shipublic — ${slug}`);
+    pdf.setProducer('Shipublic');
+    pdf.setCreator('Shipublic');
+    for (const p of pages) {
+      let embedded;
+      let png = p.bytes;
+      // pdf-lib only accepts PNG and JPG natively. Convert WebP via sharp.
+      if (p.mime === 'image/webp') {
+        png = await sharp(p.bytes).png().toBuffer();
+      }
+      if (p.mime === 'image/jpeg') {
+        embedded = await pdf.embedJpg(png);
+      } else {
+        embedded = await pdf.embedPng(png);
+      }
+      const page = pdf.addPage([embedded.width, embedded.height]);
+      page.drawImage(embedded, {
+        x: 0,
+        y: 0,
+        width: embedded.width,
+        height: embedded.height,
+      });
+    }
+    const bytes = await pdf.save();
+    return { data: Buffer.from(bytes), filename: `shipublic-${slug}.pdf` };
+  }
+
+  /**
+   * Build a ZIP archive of all images for one post. Files are flat within the
+   * archive (the post is already the implicit grouping).
+   */
+  async buildPostZip(userId: string, postId: string): Promise<{ data: Buffer; filename: string }> {
+    const JSZipMod: any = await import('jszip');
+    const JSZip = JSZipMod.default || JSZipMod;
+    const { pages, slug } = await this.loadPostPages(userId, postId);
+    const zip = new JSZip();
+    for (const p of pages) {
+      zip.file(p.filename, p.bytes);
+    }
+    const data = (await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })) as Buffer;
+    return { data, filename: `shipublic-${slug}.zip` };
+  }
+
+  /**
+   * Build a ZIP archive grouped by post. Each post becomes a top-level folder
+   * containing its ordered pages. Posts with no ready images are skipped.
+   */
+  async buildBundleZip(
+    userId: string,
+    postIds?: string[] | null,
+  ): Promise<{ data: Buffer; filename: string }> {
+    const JSZipMod: any = await import('jszip');
+    const JSZip = JSZipMod.default || JSZipMod;
+    const where: any = { userId };
+    if (postIds && postIds.length) where.id = { in: postIds };
+    const posts = await this.prisma.post.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    const zip = new JSZip();
+    let added = 0;
+    for (const post of posts) {
+      try {
+        const { pages, slug } = await this.loadPostPages(userId, post.id);
+        const folder = zip.folder(`${slug}-${post.id.slice(-6)}`);
+        if (!folder) continue;
+        for (const p of pages) {
+          folder.file(p.filename, p.bytes);
+        }
+        added++;
+      } catch {
+        /* post has no images — skip silently */
+      }
+    }
+    if (!added) throw new NotFoundException('no images to bundle');
+    const data = (await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })) as Buffer;
+    return { data, filename: `shipublic-bundle-${new Date().toISOString().slice(0, 10)}.zip` };
   }
 }

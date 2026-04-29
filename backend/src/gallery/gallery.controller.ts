@@ -118,4 +118,55 @@ export class GalleryController {
   generate(@CurrentUser() user: User, @Body() body: GenerateImageInput) {
     return this.gallery.generateForPost(user.id, body);
   }
+
+  // ----- Bundled downloads -----
+
+  @Get('posts/:postId/download.pdf')
+  async downloadPostPdf(
+    @CurrentUser() user: User,
+    @Param('postId') postId: string,
+    @Res() reply: any,
+  ) {
+    const { data, filename } = await this.gallery.buildPostPdf(user.id, postId);
+    reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .header('Cache-Control', 'private, no-store')
+      .send(data);
+  }
+
+  @Get('posts/:postId/download.zip')
+  async downloadPostZip(
+    @CurrentUser() user: User,
+    @Param('postId') postId: string,
+    @Res() reply: any,
+  ) {
+    const { data, filename } = await this.gallery.buildPostZip(user.id, postId);
+    reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .header('Cache-Control', 'private, no-store')
+      .send(data);
+  }
+
+  @Get('download.zip')
+  async downloadBundle(
+    @CurrentUser() user: User,
+    @Query('postIds') postIds: string | undefined,
+    @Res() reply: any,
+  ) {
+    const ids = (postIds || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const { data, filename } = await this.gallery.buildBundleZip(
+      user.id,
+      ids.length ? ids : null,
+    );
+    reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .header('Cache-Control', 'private, no-store')
+      .send(data);
+  }
 }
