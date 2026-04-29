@@ -19,7 +19,7 @@ import type { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { OllamaService } from '../ollama/ollama.service';
 import { GalleryService } from '../gallery/gallery.service';
-import { ComfyUIService } from './comfyui.service';
+import { ComfyUIService } from '../comfyui/comfyui.service';
 import { NEWS_QUEUE } from './news.module';
 
 interface NewsJobData {
@@ -55,7 +55,11 @@ export class NewsProcessor extends WorkerHost {
       });
       if (!items.length) throw new Error('no news items found');
 
-      const summary = await this.ollama.summarizeNews(
+      // News headlines are already short, structured prose — there is no
+      // diff to read — so we skip the coder "summarize" step entirely and
+      // hand the items straight to the chat model. Faster, cheaper, and
+      // avoids drift between two sequential LLM calls.
+      const content = await this.ollama.polishToNewsPost(
         items.map((i) => ({
           title: i.title,
           snippet: i.snippet,
@@ -63,8 +67,9 @@ export class NewsProcessor extends WorkerHost {
           sourceName: i.sourceName,
           publishedAt: i.publishedAt?.toISOString() || null,
         })),
+        platform,
+        tone,
       );
-      const content = await this.ollama.polishToNewsPost(summary, platform, tone);
 
       // Mark source items as USED + update post body atomically so a partial
       // failure between the two writes can never leave the UI showing
@@ -78,7 +83,6 @@ export class NewsProcessor extends WorkerHost {
           where: { id: postId },
           data: {
             content: content.trim(),
-            summary,
             metadata: {
               tone,
               generating: false,
@@ -90,35 +94,35 @@ export class NewsProcessor extends WorkerHost {
         }),
       ]);
 
-      // Image step. Ordered preference:
-      //  1. Caller-supplied assetId
-      //  2. ComfyUI-generated background (when COMFYUI_BASE_URL is set)
-      //  3. User's default gallery asset (handled inside GalleryService)
-      let bgAssetId: string | null = assetId ?? null;
-      if (!bgAssetId && this.comfy.available) {
-        try {
-          const prompt = await this.ollama.newsImagePrompt(items[0].title);
-          const png = await this.comfy.generateBackground(prompt);
-          if (png) {
-            const asset = await this.gallery.uploadAsset(userId, {
-              name: `AI News BG — ${items[0].title.slice(0, 60)}`,
-              mimeType: png.mime,
-              base64: png.data.toString('base64'),
-            });
-            bgAssetId = asset.id;
-          }
-        } catch (err: any) {
-          this.logger.warn(`ComfyUI background failed for post ${postId}: ${err?.message}`);
-        }
-      }
-
+      // Page 1: render the post text on top of the user's chosen / default
+      // background. Caller-supplied assetId wins; otherwise GalleryService
+      // falls back to the user's default. Failure is non-fatal.
       try {
         await this.gallery.generateForPost(userId, {
           postId,
-          assetId: bgAssetId,
+          assetId: assetId ?? null,
         });
       } catch (err: any) {
-        this.logger.warn(`gallery render failed for news post ${postId}: ${err?.message}`);
+        this.logger.warn(`page-1 (text+bg) render failed for news post ${postId}: ${err?.message}`);
+      }
+
+      // Page 2: optional AI-generated illustration. Stored as a SEPARATE
+      // GalleryImage row (kind='AI_IMAGE') — never composited into page 1.
+      if (this.comfy.available) {
+        try {
+          const prompt = await this.ollama.imagePromptFor(items[0].title);
+          const png = await this.comfy.generateBackground(prompt);
+          if (png?.data?.length) {
+            await this.gallery.saveAiImageForPost(
+              userId,
+              postId,
+              png.data,
+              items[0].title,
+            );
+          }
+        } catch (err: any) {
+          this.logger.warn(`ComfyUI page-2 failed for news post ${postId}: ${err?.message}`);
+        }
       }
     } catch (err: any) {
       this.logger.error(`News post ${postId} generation failed: ${err?.message}`);

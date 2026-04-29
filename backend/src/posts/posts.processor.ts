@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CommitsService } from '../commits/commits.service';
 import { OllamaService } from '../ollama/ollama.service';
 import { GalleryService } from '../gallery/gallery.service';
+import { ComfyUIService } from '../comfyui/comfyui.service';
 import { POSTS_QUEUE } from './posts.module';
 
 interface GenerateJobData {
@@ -24,6 +25,7 @@ export class PostsProcessor extends WorkerHost {
     private readonly commits: CommitsService,
     private readonly ollama: OllamaService,
     private readonly gallery: GalleryService,
+    private readonly comfy: ComfyUIService,
   ) {
     super();
   }
@@ -69,10 +71,25 @@ export class PostsProcessor extends WorkerHost {
           metadata: { tone, generating: false, completedAt: new Date().toISOString() },
         },
       });
-      // Auto-render the build-in-public image once the post body is ready.
-      // Failures are swallowed inside the gallery service so the post still
-      // succeeds even if rendering hits an issue (e.g. missing libvips).
+      // Page 1: text-on-default-background image. Failures are swallowed
+      // inside the gallery service so the post still succeeds.
       await this.gallery.autoGenerateForPost(userId, postId);
+
+      // Page 2: optional AI-generated illustration via ComfyUI. Stored as a
+      // SEPARATE GalleryImage row (kind='AI_IMAGE') — never composited into
+      // page 1. Skipped silently when COMFYUI_BASE_URL is not configured.
+      if (this.comfy.available) {
+        try {
+          const headline = (content.split('\n').find((l) => l.trim().length > 0) || content || '').trim();
+          const prompt = await this.ollama.imagePromptFor(headline);
+          const png = await this.comfy.generateBackground(prompt);
+          if (png?.data?.length) {
+            await this.gallery.saveAiImageForPost(userId, postId, png.data, headline);
+          }
+        } catch (err: any) {
+          this.logger.warn(`ComfyUI page-2 failed for post ${postId}: ${err?.message}`);
+        }
+      }
     } catch (err: any) {
       this.logger.error(`Post ${postId} generation failed: ${err?.message}`);
       await this.prisma.post.update({

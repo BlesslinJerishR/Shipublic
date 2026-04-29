@@ -8,6 +8,7 @@ import { OllamaModule } from '../ollama/ollama.module';
 import { CommitsModule } from '../commits/commits.module';
 import { AuthModule } from '../auth/auth.module';
 import { GalleryModule } from '../gallery/gallery.module';
+import { ComfyUIModule } from '../comfyui/comfyui.module';
 
 export const POSTS_QUEUE = 'posts-generation';
 
@@ -19,6 +20,7 @@ export const POSTS_QUEUE = 'posts-generation';
     CommitsModule,
     AuthModule,
     GalleryModule,
+    ComfyUIModule,
   ],
   controllers: [PostsController],
   providers: [PostsService, PostsProcessor],

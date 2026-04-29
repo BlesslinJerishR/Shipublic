@@ -112,42 +112,26 @@ Return ONLY the final post text. No preamble, no explanations, no quotes.`;
 
   // ---------------------------------------------------------------------------
   // AI News Gen pipeline
+  //
+  // Single-step: items → chat-polished social post.
+  // The coder model has nothing to do here — there's no diff to read and
+  // the headlines are already short, structured prose. Going straight from
+  // items → chat keeps the pipeline ~2x faster and avoids drift between two
+  // sequential LLM calls.
   // ---------------------------------------------------------------------------
 
-  async summarizeNews(
+  async polishToNewsPost(
     items: Array<{ title: string; snippet?: string | null; link: string; sourceName: string; publishedAt?: string | null }>,
+    platform: Platform,
+    tone: string = 'sharp solo-developer voice, no hype',
   ): Promise<string> {
     const compact = items
       .slice(0, 12)
       .map(
         (n, i) =>
-          `[${i + 1}] (${n.sourceName}) ${n.title}\n   ${n.snippet || ''}\n   url: ${n.link}${n.publishedAt ? ` (published ${n.publishedAt})` : ''}`,
+          `[${i + 1}] (${n.sourceName}) ${n.title}${n.snippet ? `\n   ${n.snippet}` : ''}`,
       )
       .join('\n\n');
-    const prompt = `You are an AI news editor for a solo developer's "build in public" channel.
-
-Read the news items below. Produce a structured Markdown brief:
-1. The single most newsworthy angle (one sentence)
-2. Key facts (3 to 5 bullets, concrete and dated where known)
-3. Why this matters for solo developers / indie hackers (one paragraph)
-4. Suggested narrative hook for a short social post (one sentence)
-
-Be precise. Do not invent. If items disagree, prefer the most recent.
-
-NEWS:
-${compact}`;
-    return this.generate(
-      this.coderModel,
-      prompt,
-      'You are a precise tech news editor.',
-    );
-  }
-
-  async polishToNewsPost(
-    summary: string,
-    platform: Platform,
-    tone: string = 'sharp solo-developer voice, no hype',
-  ): Promise<string> {
     const constraints =
       platform === 'TWITTER'
         ? 'One post, under 270 characters. Hook on line 1. At most one hashtag. No emojis.'
@@ -160,10 +144,10 @@ Tone: ${tone}. First person. Plain, calm, technically literate. Explain it like 
 
 ${constraints}
 
-Use the brief below as ground truth. Do not invent facts.
+Use the items below as ground truth. Do not invent facts. If items disagree, prefer the most recent.
 
-BRIEF:
-${summary}
+ITEMS:
+${compact}
 
 Return ONLY the final post text. No preamble, no quotes, no explanations.`;
     return this.generate(
@@ -174,16 +158,18 @@ Return ONLY the final post text. No preamble, no quotes, no explanations.`;
   }
 
   /**
-   * Build a Stable Diffusion-friendly prompt for the news post background.
-   * Returns a single line. Falls back to a sensible default if Ollama is
-   * unreachable so the news pipeline never blocks on this step.
+   * Build a Stable Diffusion-friendly prompt for an editorial illustration
+   * that represents the supplied headline / post text. Returns a single
+   * line. Falls back to a sensible default if Ollama is unreachable so
+   * pipelines never block on this step.
    */
-  async newsImagePrompt(headline: string): Promise<string> {
-    const fallback = `cinematic editorial illustration, dark moody background #1D1E21, neon crimson #FF004F highlights, abstract tech motif inspired by: ${headline}, high contrast, 4k, no text, no watermark, no logo`;
+  async imagePromptFor(headline: string): Promise<string> {
+    const safe = (headline || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    const fallback = `cinematic editorial illustration, dark moody background #1D1E21, neon crimson #FF004F highlights, abstract tech motif inspired by: ${safe}, high contrast, 4k, no text, no watermark, no logo`;
     try {
       const out = await this.generate(
         this.chatModel,
-        `Write ONE single-line Stable Diffusion prompt (under 60 words) for an editorial illustration that visually represents this AI news headline.\n\nHeadline: "${headline}"\n\nRules:\n- No text, no letters, no logos, no watermarks in the image\n- Pure black background (#1D1E21) with crimson (#FF004F) and white accents\n- Cinematic, editorial, high contrast\n- Return ONLY the prompt text, no preface, no quotes\n`,
+        `Write ONE single-line Stable Diffusion prompt (under 60 words) for an editorial illustration that visually represents this:\n\n"${safe}"\n\nRules:\n- No text, no letters, no logos, no watermarks in the image\n- Pure black background (#1D1E21) with crimson (#FF004F) and white accents\n- Cinematic, editorial, high contrast\n- Return ONLY the prompt text, no preface, no quotes\n`,
         'You write concise Stable Diffusion prompts.',
       );
       const line = out.split('\n').find((l) => l.trim().length > 0)?.trim() || fallback;
@@ -193,5 +179,10 @@ Return ONLY the final post text. No preamble, no quotes, no explanations.`;
     } catch {
       return fallback;
     }
+  }
+
+  /** Backwards-compatible alias used by older call sites. */
+  async newsImagePrompt(headline: string): Promise<string> {
+    return this.imagePromptFor(headline);
   }
 }

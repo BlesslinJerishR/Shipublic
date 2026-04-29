@@ -172,15 +172,6 @@ export default function GalleryPage() {
     [mutateAssets],
   );
 
-  const removeImage = useCallback(
-    async (id: string) => {
-      if (!confirm('Delete this generated image?')) return;
-      await api.gallery.images.remove(id);
-      await mutateImages((prev) => (prev || []).filter((g) => g.id !== id));
-    },
-    [mutateImages],
-  );
-
   const postById = useMemo(() => {
     const m = new Map<string, Post>();
     for (const p of posts) m.set(p.id, p);
@@ -446,46 +437,102 @@ export default function GalleryPage() {
           </div>
         )}
         <div className={styles.imageGrid}>
-          {images.map((img) => {
-            const post = img.postId ? postById.get(img.postId) : null;
-            return (
-              <div key={img.id} className={styles.imageCard}>
-                <div className={styles.imageThumb}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewSrc(img)} alt={`Image ${img.id}`} loading="lazy" />
-                  {img.status === 'FAILED' && (
-                    <div className={styles.failedBadge}>render failed</div>
-                  )}
-                </div>
-                <div className={styles.imageMeta}>
-                  <div className={styles.imageTitle} title={post?.title || ''}>
-                    {post?.title || post?.content?.slice(0, 80) || 'Untitled post'}
+          {(() => {
+            // Each post can have up to two pages: a text-on-bg \"POST\" page and
+            // an \"AI_IMAGE\" page produced by ComfyUI. The thumbnail prefers
+            // the AI image so users see the illustration first; both are still
+            // independently downloadable from the same card. Images without
+            // a postId (e.g. ad-hoc renders) get their own card.
+            type Group = { key: string; post: Post | null; ai: GalleryImage | null; bg: GalleryImage | null; orphans: GalleryImage[] };
+            const byPost = new Map<string, Group>();
+            const orphans: GalleryImage[] = [];
+            for (const img of images) {
+              if (!img.postId) { orphans.push(img); continue; }
+              const g = byPost.get(img.postId) || {
+                key: img.postId,
+                post: postById.get(img.postId) || null,
+                ai: null, bg: null, orphans: [],
+              };
+              if (img.spec?.kind === 'AI_IMAGE') g.ai = g.ai || img;
+              else g.bg = g.bg || img;
+              byPost.set(img.postId, g);
+            }
+            const groups: Group[] = [
+              ...Array.from(byPost.values()),
+              ...orphans.map((o) => ({ key: o.id, post: null, ai: null, bg: o, orphans: [] } as Group)),
+            ];
+
+            return groups.map((g) => {
+              const preview = g.ai || g.bg;
+              if (!preview) return null;
+              const post = g.post;
+              return (
+                <div key={g.key} className={styles.imageCard}>
+                  <div className={styles.imageThumb}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={previewSrc(preview)} alt={`Image ${preview.id}`} loading="lazy" />
+                    {preview.status === 'FAILED' && (
+                      <div className={styles.failedBadge}>render failed</div>
+                    )}
+                    {g.ai && g.bg && (
+                      <div className={styles.failedBadge} style={{ background: 'rgba(0,0,0,0.55)' }}>
+                        AI + text page
+                      </div>
+                    )}
                   </div>
-                  <div className={styles.assetSub}>
-                    {img.width}×{img.height} · {img.spec.ratio}
+                  <div className={styles.imageMeta}>
+                    <div className={styles.imageTitle} title={post?.title || ''}>
+                      {post?.title || post?.content?.slice(0, 80) || 'Untitled post'}
+                    </div>
+                    <div className={styles.assetSub}>
+                      {preview.width}×{preview.height} · {preview.spec.ratio}
+                      {g.ai ? ' · AI image' : ''}
+                    </div>
                   </div>
-                </div>
-                <div className={styles.imageActions}>
-                  {post && (
-                    <Link
-                      prefetch={false}
-                      href={`/dashboard/posts/${post.id}/image`}
-                      className={styles.iconLink}
-                      title="Edit image"
+                  <div className={styles.imageActions}>
+                    {post && (
+                      <Link
+                        prefetch={false}
+                        href={`/dashboard/posts/${post.id}/image`}
+                        className={styles.iconLink}
+                        title="Edit text page"
+                      >
+                        <Pencil size={14} />
+                      </Link>
+                    )}
+                    {g.ai && (
+                      <button onClick={() => downloadImage(g.ai!)} title="Download AI image">
+                        <Download size={14} />
+                      </button>
+                    )}
+                    {g.bg && (
+                      <button
+                        onClick={() => downloadImage(g.bg!)}
+                        title={g.ai ? 'Download text page' : 'Download'}
+                        style={g.ai ? { opacity: 0.7 } : undefined}
+                      >
+                        <Download size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        // Delete both pages together when present so the gallery
+                        // does not end up showing only half of a post's output.
+                        if (!confirm('Delete this image (and its other page if any)?')) return;
+                        const ids = [g.ai?.id, g.bg?.id].filter(Boolean) as string[];
+                        Promise.all(ids.map((id) => api.gallery.images.remove(id))).then(() =>
+                          mutateImages((prev) => (prev || []).filter((x) => !ids.includes(x.id))),
+                        );
+                      }}
+                      title="Delete"
                     >
-                      <Pencil size={14} />
-                    </Link>
-                  )}
-                  <button onClick={() => downloadImage(img)} title="Download">
-                    <Download size={14} />
-                  </button>
-                  <button onClick={() => removeImage(img.id)} title="Delete">
-                    <Trash2 size={14} />
-                  </button>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </Card>
     </div>

@@ -44,6 +44,7 @@ export default function PostDetail() {
   const [copied, setCopied] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(() => getSettings());
   const [image, setImage] = useState<GalleryImage | null>(null);
+  const [aiImage, setAiImage] = useState<GalleryImage | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const pollRef = useRef<any>(null);
@@ -66,7 +67,14 @@ export default function PostDetail() {
   const loadImageForPost = useCallback(async (postId: string) => {
     try {
       const list = (await api.gallery.images.list(postId)) as GalleryImage[];
-      setImage(list[0] || null);
+      // Two pages may exist for a post:
+      //   1. The standard text-on-background composite ("POST")
+      //   2. An AI-generated illustration ("AI_IMAGE") — ComfyUI output
+      // The user-facing preview thumbnail prefers the AI image when present.
+      const ai = list.find((g) => g.spec?.kind === 'AI_IMAGE') || null;
+      const post = list.find((g) => g.spec?.kind !== 'AI_IMAGE') || null;
+      setAiImage(ai);
+      setImage(post || list[0] || null);
     } catch {
       /* gallery API unavailable; keep last known state */
     }
@@ -171,8 +179,11 @@ export default function PostDetail() {
   if (!post) return <div style={{ opacity: 0.6 }}>Loading post</div>;
 
   const generating = post.metadata?.generating;
-  const imagePreviewSrc = image
-    ? image.dataUrl || api.gallery.images.fileUrl(image.id)
+  // Prefer the AI illustration for the preview when one exists; the
+  // text+bg composite stays accessible via Edit / Download below.
+  const previewImage = aiImage || image;
+  const imagePreviewSrc = previewImage
+    ? previewImage.dataUrl || api.gallery.images.fileUrl(previewImage.id)
     : null;
 
   return (

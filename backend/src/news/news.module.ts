@@ -5,7 +5,7 @@ import { NewsController } from './news.controller';
 import { NewsService } from './news.service';
 import { NewsProcessor } from './news.processor';
 import { RssService } from './rss.service';
-import { ComfyUIService } from './comfyui.service';
+import { ComfyUIModule } from '../comfyui/comfyui.module';
 import { OllamaModule } from '../ollama/ollama.module';
 import { GalleryModule } from '../gallery/gallery.module';
 import { AuthModule } from '../auth/auth.module';
@@ -18,9 +18,10 @@ export const NEWS_QUEUE = 'news-generation';
     OllamaModule,
     GalleryModule,
     AuthModule,
+    ComfyUIModule,
   ],
   controllers: [NewsController],
-  providers: [NewsService, NewsProcessor, RssService, ComfyUIService],
+  providers: [NewsService, NewsProcessor, RssService],
   exports: [NewsService],
 })
 export class NewsModule {}

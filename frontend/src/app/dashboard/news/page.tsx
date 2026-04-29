@@ -389,17 +389,17 @@ export default function NewsPage() {
                     checked={enabledSources.has(s.id)}
                     onChange={() => toggleSource(s.id)}
                   />
-                  <span style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div style={{ fontSize: 11, opacity: 0.55 }}>
+                  <span className={styles.sourceBody}>
+                    <span className={styles.sourceName} title={s.name}>{s.name}</span>
+                    <span className={styles.sourceSub} title={s.lastFetchedAt || ''}>
                       {KIND_LABEL[s.kind]}
                       {s.lastFetchedAt
-                        ? ` · last ${new Date(s.lastFetchedAt).toLocaleString()}`
+                        ? ` · ${new Date(s.lastFetchedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
                         : ''}
-                    </div>
+                    </span>
                   </span>
                   <button
-                    className={styles.iconBtn}
+                    className={`${styles.iconBtn} ${styles.sourceTrash}`}
                     onClick={(e) => {
                       e.preventDefault();
                       deleteSource(s.id);
@@ -492,8 +492,8 @@ export default function NewsPage() {
                 <Sparkles size={14} /> Generate from selection ({selected.size})
               </button>
               <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>
-                Pipeline: coder model brief → chat model post → ComfyUI background
-                (if configured) → image.
+                Pipeline: items → chat-polished post → text-on-bg image, plus a
+                separate AI illustration (when ComfyUI is configured).
               </div>
             </div>
           </Card>

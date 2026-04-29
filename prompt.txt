@@ -343,3 +343,14 @@ Ai news generated post ->   Add the text in given bg image + Ai Image in second 
 
 3. In /dashboard/news
 Sources cards Ui/Ux is not right. Fix. Ui Bug screenshot attached
+
+1. Always make sure in the output The First page image is comfy Ui generated Ai image and second page image is Ai Post + BG image.
+
+2. Implement download as pdf
+
+3. Implement download as zip (seperate images grouped)
+
+4. make sure in demo account all these features works. demo images will be downloaded in the user's system
+
+make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
+

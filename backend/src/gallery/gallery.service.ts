@@ -441,4 +441,73 @@ export class GalleryService implements OnModuleInit {
       this.logger.warn(`auto-generate skipped for post ${postId}: ${err?.message}`);
     }
   }
+
+  /**
+   * Persist a raw AI-generated PNG (e.g. ComfyUI output) as a SECOND
+   * GalleryImage attached to the post. The bytes are written verbatim — no
+   * text or background compositing is performed. The row is tagged
+   * `spec.kind = 'AI_IMAGE'` so the UI can prefer it for the preview
+   * thumbnail while still keeping the text+bg "post" image around for
+   * editing and download.
+   */
+  async saveAiImageForPost(
+    userId: string,
+    postId: string,
+    png: Buffer,
+    label?: string,
+  ): Promise<void> {
+    if (!png?.length) return;
+    try {
+      // Probe dimensions so the row matches what the UI displays for the
+      // primary image. Falls back to the env-configured ComfyUI defaults if
+      // sharp can't decode for any reason.
+      let width = Number(process.env.COMFYUI_WIDTH || 1024);
+      let height = Number(process.env.COMFYUI_HEIGHT || 1280);
+      try {
+        const meta = await sharp(png).metadata();
+        if (meta.width) width = meta.width;
+        if (meta.height) height = meta.height;
+      } catch {
+        /* keep defaults */
+      }
+      const ratio = (() => {
+        if (!width || !height) return 'INSTAGRAM_PORTRAIT';
+        const r = width / height;
+        if (r > 1.6) return 'TWITTER_LANDSCAPE';
+        if (r > 1.05) return 'LINKEDIN_LANDSCAPE';
+        if (r < 0.7) return 'STORY_VERTICAL';
+        return 'INSTAGRAM_PORTRAIT';
+      })();
+      const id = `gi_${randomBytes(8).toString('hex')}`;
+      const filename = `${id}.png`;
+      const abs = path.join(this.storageDir, 'images', filename);
+      await fs.writeFile(abs, png);
+      await this.prisma.galleryImage.create({
+        data: {
+          id,
+          userId,
+          postId,
+          assetId: null,
+          filename,
+          mimeType: 'image/png',
+          width,
+          height,
+          sizeBytes: png.length,
+          // Minimal valid spec so existing UI fields (ratio etc.) keep working,
+          // plus a marker the frontend can switch on.
+          spec: {
+            kind: 'AI_IMAGE',
+            ratio,
+            label: (label || '').slice(0, 200),
+            generatedBy: 'comfyui',
+          } as any,
+          status: 'READY',
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `saveAiImageForPost failed for post ${postId}: ${err?.message}`,
+      );
+    }
+  }
 }

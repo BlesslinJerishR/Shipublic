@@ -457,8 +457,13 @@ function hydrateDemoGalleryImages() {
 }
 
 async function ensureDemoImageForPost(s: DemoStore, post: Post): Promise<GalleryImage> {
-  const existing = s.galleryImages.find((g) => g.postId === post.id);
-  if (existing) return existing;
+  const existing = s.galleryImages.find((g) => g.postId === post.id && g.spec?.kind !== 'AI_IMAGE');
+  if (existing) {
+    // Even if the text page exists, make sure the AI illustration page is
+    // present too \u2014 idempotent.
+    await ensureDemoAiImageForPost(s, post);
+    return existing;
+  }
   const isNews = post.kind === 'NEWS';
   const ratio = (() => {
     if (isNews) return 'INSTAGRAM_PORTRAIT';
@@ -487,14 +492,11 @@ async function ensureDemoImageForPost(s: DemoStore, post: Post): Promise<Gallery
   const scale = uhdScale(spec);
   let dataUrl = '';
   try {
-    dataUrl = await renderToDataUrl(spec, DEMO_DEFAULT_BG_URL, {
-      scale,
-      foregroundUrl: isNews ? DEMO_NEWS_OVERLAY_URL : null,
-      foregroundWidthPct: 0.7,
-      foregroundAnchor: 'center',
-    });
+    // Page 1 is purely text-on-background. The AI illustration is stored
+    // separately as a second gallery row (see ensureDemoAiImageForPost).
+    dataUrl = await renderToDataUrl(spec, DEMO_DEFAULT_BG_URL, { scale });
   } catch {
-    /* ignore — image stays empty in demo */
+    /* ignore \u2014 image stays empty in demo */
   }
   const img: GalleryImage = {
     id: `demo-img-${post.id}`,
@@ -506,14 +508,69 @@ async function ensureDemoImageForPost(s: DemoStore, post: Post): Promise<Gallery
     width: spec.width * scale,
     height: spec.height * scale,
     sizeBytes: dataUrl.length,
-    spec: spec as GalleryRenderSpec,
+    spec: { ...(spec as GalleryRenderSpec), kind: 'POST' },
     status: 'READY',
     createdAt: nowIso(0),
     updatedAt: nowIso(0),
     dataUrl,
   };
   s.galleryImages.unshift(img);
+  await ensureDemoAiImageForPost(s, post);
   return img;
+}
+
+/**
+ * Mirror of the backend ComfyUI page-2 step in demo mode. Adds a second
+ * `GalleryImage` row whose `spec.kind === 'AI_IMAGE'` and whose `dataUrl`
+ * is the bundled demo illustration. Idempotent.
+ */
+async function ensureDemoAiImageForPost(s: DemoStore, post: Post): Promise<void> {
+  if (s.galleryImages.some((g) => g.postId === post.id && g.spec?.kind === 'AI_IMAGE')) return;
+  // Convert the bundled JPG to a data URL so the same code path that powers
+  // Download in demo mode (which expects `dataUrl`) just works.
+  let dataUrl = '';
+  try {
+    const res = await fetch(DEMO_NEWS_OVERLAY_URL);
+    const blob = await res.blob();
+    dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = () => reject(r.error || new Error('read failed'));
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return;
+  }
+  // Probe dimensions so the gallery card renders the correct aspect.
+  const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+    const i = new Image();
+    i.onload = () => resolve({ w: i.naturalWidth || 1024, h: i.naturalHeight || 1024 });
+    i.onerror = () => resolve({ w: 1024, h: 1024 });
+    i.src = dataUrl;
+  });
+  const ratio = (() => {
+    const r = dims.w / dims.h;
+    if (r > 1.6) return 'TWITTER_LANDSCAPE';
+    if (r > 1.05) return 'LINKEDIN_LANDSCAPE';
+    if (r < 0.7) return 'STORY_VERTICAL';
+    return 'INSTAGRAM_PORTRAIT';
+  })();
+  s.galleryImages.unshift({
+    id: `demo-img-ai-${post.id}`,
+    userId: 'demo-user-1',
+    postId: post.id,
+    assetId: null,
+    filename: `${post.id}-ai.png`,
+    mimeType: 'image/png',
+    width: dims.w,
+    height: dims.h,
+    sizeBytes: dataUrl.length,
+    spec: { ratio, kind: 'AI_IMAGE', label: post.title || 'AI illustration', generatedBy: 'demo' } as GalleryRenderSpec,
+    status: 'READY',
+    createdAt: nowIso(0),
+    updatedAt: nowIso(0),
+    dataUrl,
+  });
 }
 
 function getStore(): DemoStore {
@@ -1237,8 +1294,7 @@ export async function handleDemoRequest(rawPath: string, init: RequestInit = {})
       kind: 'NEWS',
       title: headline.slice(0, 200),
       content: settings.signatureEnabled ? appendSignature(baseContent, settings.signature) : baseContent,
-      summary:
-        '- Coder model condensed the headlines into a brief\n- Chat model rewrote it as a ' + platform.toLowerCase() + ' post\n- Demo data only — no real Ollama or ComfyUI call was made',
+      summary: null,
       platform,
       status: 'DRAFT',
       scheduledFor: null,
@@ -1259,6 +1315,10 @@ export async function handleDemoRequest(rawPath: string, init: RequestInit = {})
     s.posts.unshift(post);
     // Mark as used for visual feedback.
     for (const it of items) it.status = 'USED';
+    // Fire-and-forget the two gallery pages (text+bg, then AI image).
+    // Demo callers re-fetch on navigation so the rows just need to be in the
+    // store by the time the user lands on /dashboard/posts/[id].
+    ensureDemoImageForPost(s, post).catch(() => {});
     notify('Demo: news post generated locally. Refresh resets the demo workspace.');
     return delay(post);
   }

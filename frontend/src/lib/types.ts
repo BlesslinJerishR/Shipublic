@@ -165,22 +165,33 @@ export interface GalleryAsset {
 
 export interface GalleryRenderSpec {
   ratio: string;
-  width: number;
-  height: number;
-  marginTopPct: number;
-  marginBottomPct: number;
-  marginLeftPct: number;
-  marginRightPct: number;
-  fontFamily: string;
-  fontSize: number;
-  fontColor: string;
-  textAlign: 'left' | 'center' | 'right';
-  verticalAlign: 'start' | 'center' | 'end';
-  bgFit: 'cover' | 'contain';
-  bgFillColor: string;
-  content: string;
+  width?: number;
+  height?: number;
+  marginTopPct?: number;
+  marginBottomPct?: number;
+  marginLeftPct?: number;
+  marginRightPct?: number;
+  fontFamily?: string;
+  fontSize?: number;
+  fontColor?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  verticalAlign?: 'start' | 'center' | 'end';
+  bgFit?: 'cover' | 'contain';
+  bgFillColor?: string;
+  content?: string;
   offsetX?: number;
   offsetY?: number;
+  /**
+   * `'POST'` (default) — the standard text-on-background composite that
+   * the gallery renderer produces. `'AI_IMAGE'` — a raw, AI-generated
+   * illustration (e.g. ComfyUI output) stored as a separate page on the
+   * same post. Frontends should prefer `AI_IMAGE` for thumbnail previews
+   * when both pages exist.
+   */
+  kind?: 'POST' | 'AI_IMAGE';
+  /** Optional human label for AI_IMAGE rows. */
+  label?: string;
+  generatedBy?: string;
 }
 
 export interface GalleryImage {
