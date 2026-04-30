@@ -371,3 +371,9 @@ https://www.linkedin.com/in/blesslinjerish
 
 make no mistakes. It should work end to end. implement end to end. implement both the frontend and backend. improvise as much as needed. improvise accordingly. make it as an enterprise grade level application. Implement
 
+1. In mobile screens I can't click on anything. Check and fix
+2. The attched landing page has Hire banner. implement the same banner with same color across all the pages in the shipublic app
+
+It should say Hire blessl.in for $3000 USD
+
+Same white background with theme #FF004F red color texts
