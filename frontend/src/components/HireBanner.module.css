@@ -12,7 +12,6 @@
   background: #ffffff;
   color: #000000;
   border-bottom: 1px solid #e0e0e0;
-  min-height: var(--hire-banner-height, 40px);
   line-height: 1.4;
 }
 

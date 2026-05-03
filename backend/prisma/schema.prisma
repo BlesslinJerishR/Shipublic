@@ -201,7 +201,7 @@ model GallerySettings {
   textAlign       String   @default("left")
   verticalAlign   String   @default("center")
   bgFit           String   @default("cover")
-  bgFillColor     String   @default("#1D1E21")
+  bgFillColor     String   @default("#000000")
   defaultAssetId  String?
   autoGenerate    Boolean  @default(true)
 

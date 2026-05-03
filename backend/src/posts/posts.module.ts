@@ -9,8 +9,9 @@ import { CommitsModule } from '../commits/commits.module';
 import { AuthModule } from '../auth/auth.module';
 import { GalleryModule } from '../gallery/gallery.module';
 import { ComfyUIModule } from '../comfyui/comfyui.module';
+import { POSTS_QUEUE } from './posts.constants';
 
-export const POSTS_QUEUE = 'posts-generation';
+export { POSTS_QUEUE };
 
 @Module({
   imports: [

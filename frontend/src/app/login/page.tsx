@@ -42,17 +42,20 @@ function LoginInner() {
     const tick = setInterval(() => {
       setAutoCountdown((c) => {
         if (c === null) return c;
-        if (c <= 1) {
-          clearInterval(tick);
-          submit(DEMO_USERNAME, DEMO_PASSWORD);
-          return 0;
-        }
+        if (c <= 1) { clearInterval(tick); return 0; }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(tick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  // Navigate once countdown reaches 0 — kept outside the setState updater
+  // to avoid the "setState while rendering" warning.
+  useEffect(() => {
+    if (autoCountdown !== 0) return;
+    enableDemo();
+    router.replace('/dashboard');
+  }, [autoCountdown, router]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();

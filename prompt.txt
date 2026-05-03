@@ -131,7 +131,7 @@ Black Background + White color for text content + Hero Color
 Light Mode :
 White Background + Black color for text content + Hero Color
 
-Black Background : #1D1E21
+Black Background : #000000
 Hero Color : #FF004F
 
 1. move the landing page index.html to the nextJS application root . in NextJS root landing page this landing page should load
@@ -321,7 +321,7 @@ AI news → prompt generator → ComfyUI → image → auto watermark → post
 
 - My theme color is only
 
-#1D1E21 - Black Background color
+#000000 - Black Background color
 #FFFFFF - white color for text
 #FF004F - Hero Primary color for heading , title and important keyword marking in the post image
 

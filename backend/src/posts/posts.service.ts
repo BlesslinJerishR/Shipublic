@@ -8,7 +8,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommitsService } from '../commits/commits.service';
 import type { PostPlatform, PostStatus } from '@prisma/client';
-import { POSTS_QUEUE } from './posts.module';
+import { POSTS_QUEUE } from './posts.constants';
 
 export interface GeneratePostInput {
   projectId: string;

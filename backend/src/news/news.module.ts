@@ -9,8 +9,9 @@ import { ComfyUIModule } from '../comfyui/comfyui.module';
 import { OllamaModule } from '../ollama/ollama.module';
 import { GalleryModule } from '../gallery/gallery.module';
 import { AuthModule } from '../auth/auth.module';
+import { NEWS_QUEUE } from './news.constants';
 
-export const NEWS_QUEUE = 'news-generation';
+export { NEWS_QUEUE };
 
 @Module({
   imports: [

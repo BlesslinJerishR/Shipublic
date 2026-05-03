@@ -104,7 +104,7 @@ What makes this different from every other "AI post writer":
 | Post generation | Twitter / LinkedIn / Generic, configurable tone, custom signature line. |
 | Post lifecycle | Draft → Scheduled → Published → (Failed); edit, copy, re-generate. |
 | Calendar | One GitHub-style 365-day contributions heatmap (per project) and one posts calendar (across all projects). |
-| Theming | Light / Dark with FOUC-free synchronous bootstrap; brand palette `#1D1E21`, `#FFFFFF`, `#FF004F`. |
+| Theming | Light / Dark with FOUC-free synchronous bootstrap; brand palette `#000000`, `#FFFFFF`, `#FF004F`. |
 | Demo mode | Standalone read-only experience with seeded mock data, no backend required. |
 | Webhooks | HMAC-SHA256 signature verified in constant time against the raw request body. |
 | Background work | Post generation runs in a BullMQ worker so HTTP requests stay snappy. |

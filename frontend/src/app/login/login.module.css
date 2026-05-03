@@ -172,7 +172,7 @@
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: rgba(var(--fgRgb), 0.5);
-  background: var(--bg, #1D1E21);
+  background: var(--bg, #000000);
 }
 
 .ghost {

@@ -20,7 +20,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OllamaService } from '../ollama/ollama.service';
 import { GalleryService } from '../gallery/gallery.service';
 import { ComfyUIService } from '../comfyui/comfyui.service';
-import { NEWS_QUEUE } from './news.module';
+import { NEWS_QUEUE } from './news.constants';
 
 interface NewsJobData {
   postId: string;

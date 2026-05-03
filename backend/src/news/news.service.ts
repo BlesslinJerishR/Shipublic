@@ -20,7 +20,7 @@ import type {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RssService, FeedSourceSpec } from './rss.service';
-import { NEWS_QUEUE } from './news.module';
+import { NEWS_QUEUE } from './news.constants';
 
 export interface CreateSourceInput {
   kind: NewsSourceKind;

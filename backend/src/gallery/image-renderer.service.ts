@@ -141,7 +141,7 @@ export class ImageRendererService {
       verticalAlign:
         input.verticalAlign === 'start' || input.verticalAlign === 'end' ? input.verticalAlign : 'center',
       bgFit: input.bgFit === 'contain' ? 'contain' : 'cover',
-      bgFillColor: typeof input.bgFillColor === 'string' ? input.bgFillColor : '#1D1E21',
+      bgFillColor: typeof input.bgFillColor === 'string' ? input.bgFillColor : '#000000',
       content: typeof input.content === 'string' ? input.content : '',
       offsetX: Number.isFinite(input.offsetX as number) ? Number(input.offsetX) : 0,
       offsetY: Number.isFinite(input.offsetY as number) ? Number(input.offsetY) : 0,

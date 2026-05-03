@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: shipublic
       POSTGRES_DB: shipublic
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - shipublic_pg:/var/lib/postgresql/data
 
@@ -17,7 +17,7 @@ services:
     container_name: shipublic_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - shipublic_redis:/data

@@ -6,7 +6,7 @@ import { CommitsService } from '../commits/commits.service';
 import { OllamaService } from '../ollama/ollama.service';
 import { GalleryService } from '../gallery/gallery.service';
 import { ComfyUIService } from '../comfyui/comfyui.service';
-import { POSTS_QUEUE } from './posts.module';
+import { POSTS_QUEUE } from './posts.constants';
 
 interface GenerateJobData {
   postId: string;

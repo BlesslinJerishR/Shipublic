@@ -417,7 +417,7 @@ function buildDemoSettings(): GallerySettings {
     textAlign: 'left',
     verticalAlign: 'center',
     bgFit: 'cover',
-    bgFillColor: '#1D1E21',
+    bgFillColor: '#000000',
     defaultAssetId: DEMO_DEFAULT_ASSET_ID,
     autoGenerate: true,
     createdAt: nowIso(-365),

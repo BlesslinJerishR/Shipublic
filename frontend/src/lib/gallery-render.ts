@@ -47,7 +47,7 @@ export const DEFAULT_SPEC: RenderSpec = {
   textAlign: 'left',
   verticalAlign: 'center',
   bgFit: 'cover',
-  bgFillColor: '#1D1E21',
+  bgFillColor: '#000000',
   content: '',
   offsetX: 0,
   offsetY: 0,

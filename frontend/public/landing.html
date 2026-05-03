@@ -16,13 +16,13 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root, [data-theme="dark"] {
-      --bg-primary: #1D1E21;
-      --bg-secondary: #161719;
-      --bg-tertiary: #222326;
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-tertiary: #111111;
       --text-primary: #ffffff;
       --text-secondary: #a0a0a0;
       --text-muted: #555555;
-      --border-color: #2a2b2e;
+      --border-color: #1a1a1a;
       --accent-primary: #FF004F;
       --accent-hover: #E00047;
       --accent-glow: rgba(255, 0, 79, 0.15);
@@ -166,6 +166,23 @@
     .nav-demo-btn:hover {
       background: var(--accent-primary); color: #ffffff;
       border-style: solid; transform: translateY(-1px);
+    }
+
+    .nav-login-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 14px; font-weight: 600;
+      font-family: var(--font-body);
+      transition: all 0.2s; cursor: pointer;
+      background: transparent;
+    }
+    .nav-login-btn:hover {
+      border-color: var(--text-muted);
+      background: rgba(var(--fgRgb, 255,255,255), 0.05);
+      transform: translateY(-1px);
     }
 
     .hamburger {
@@ -894,6 +911,7 @@
       .hamburger { display: flex; }
       .nav-cta { display: none; }
       .nav-demo-btn { display: none; }
+      .nav-login-btn { display: none; }
       .navbar { padding: 12px 20px; }
     }
     @media (max-width: 768px) {
@@ -975,6 +993,10 @@
         <i data-lucide="moon" class="theme-icon-dark" style="width:16px;height:16px;"></i>
         <i data-lucide="sun" class="theme-icon-light" style="width:16px;height:16px;display:none;"></i>
       </button>
+      <a href="/login" class="nav-login-btn">
+        <i data-lucide="log-in" style="width:14px;height:14px;"></i>
+        Sign in
+      </a>
       <a href="#demo" class="nav-demo-btn" onclick="openFreeDemo(event)">
         <i data-lucide="play" style="width:14px;height:14px;"></i>
         Demo
@@ -1002,6 +1024,7 @@
     <a href="#pricing" class="mobile-nav-link">Pricing</a>
     <a href="#faq" class="mobile-nav-link">FAQ</a>
     <a href="https://github.com/BlesslinJerishR/Shipublic" target="_blank" class="mobile-nav-link" style="color:var(--accent-primary);">GitHub</a>
+    <a href="/login" class="mobile-nav-link" style="border:1px solid var(--border-color);border-radius:8px;padding:8px 16px;text-align:center;">Sign in</a>
     <a href="#demo" class="mobile-nav-link" style="color:var(--accent-primary);border:1px dashed var(--accent-primary);border-radius:8px;padding:8px 16px;text-align:center;" onclick="openFreeDemo(event)">&#9654; Free Demo</a>
   </div>
 

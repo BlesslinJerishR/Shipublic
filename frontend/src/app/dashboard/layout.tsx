@@ -220,35 +220,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 12,
-              padding: '8px 24px',
-              background: 'rgba(255, 0, 79, 0.08)',
-              borderBottom: '1px solid rgba(255, 0, 79, 0.25)',
-              color: 'var(--hero)',
-              fontSize: 13,
-              fontWeight: 600,
+              padding: '6px 20px',
+              background: 'rgba(var(--fgRgb), 0.04)',
+              borderBottom: '1px solid rgba(var(--fgRgb), 0.08)',
+              color: 'rgba(var(--fgRgb), 0.5)',
+              fontSize: 12,
+              fontWeight: 500,
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <Play size={13} />
-              Demo workspace &middot; read &amp; view only with seeded mock data &middot; refresh resets all changes
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Play size={11} />
+              Demo &mdash; read &amp; view only
             </span>
             <button
               onClick={exitDemo}
               style={{
                 background: 'transparent',
-                border: '1px solid rgba(255, 0, 79, 0.45)',
-                color: 'var(--hero)',
-                borderRadius: 8,
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: 700,
+                border: '1px solid rgba(var(--fgRgb), 0.14)',
+                color: 'rgba(var(--fgRgb), 0.5)',
+                borderRadius: 6,
+                padding: '3px 9px',
+                fontSize: 11,
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 5,
               }}
             >
-              <X size={12} /> Exit demo
+              <X size={11} /> Exit
             </button>
           </div>
         )}

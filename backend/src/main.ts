@@ -5,6 +5,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { Readable } from 'stream';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import { AppModule } from './app.module';
@@ -21,21 +22,17 @@ async function bootstrap() {
   });
 
   const fastify = adapter.getInstance();
-  // Replace the default JSON content-type parser so we can stash the raw body
-  // for HMAC verification on the GitHub webhook route. Done once at startup.
-  fastify.addContentTypeParser(
-    'application/json',
-    { parseAs: 'buffer' },
-    (req: any, body: Buffer, done: any) => {
-      try {
-        req.rawBody = body;
-        const json = body.length ? JSON.parse(body.toString('utf8')) : {};
-        done(null, json);
-      } catch (err) {
-        done(err, undefined);
-      }
-    },
-  );
+  // Capture the raw body for HMAC verification on the GitHub webhook route.
+  // We use preParsing (runs before the JSON content-type parser) so we don't
+  // conflict with the parser that @nestjs/platform-fastify registers on init.
+  fastify.addHook('preParsing', async (req: any, _reply: any, payload: any) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of payload) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    req.rawBody = Buffer.concat(chunks);
+    return Readable.from([req.rawBody]);
+  });
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,

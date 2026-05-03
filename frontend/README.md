@@ -3,7 +3,7 @@
 Next.js 15 (App Router) with TypeScript and CSS Modules. Lucide icons only.
 
 Default theme is dark. Color tokens (only):
-- Dark: background `#1D1E21`, text `#FFFFFF`
+- Dark: background `#000000`, text `#FFFFFF`
 - Light: background `#FFFFFF`, text `#000000`
 - Hero accent: `#FF004F`
 

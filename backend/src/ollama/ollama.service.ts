@@ -165,11 +165,11 @@ Return ONLY the final post text. No preamble, no quotes, no explanations.`;
    */
   async imagePromptFor(headline: string): Promise<string> {
     const safe = (headline || '').replace(/\s+/g, ' ').trim().slice(0, 240);
-    const fallback = `cinematic editorial illustration, dark moody background #1D1E21, neon crimson #FF004F highlights, abstract tech motif inspired by: ${safe}, high contrast, 4k, no text, no watermark, no logo`;
+    const fallback = `cinematic editorial illustration, dark moody background #000000, neon crimson #FF004F highlights, abstract tech motif inspired by: ${safe}, high contrast, 4k, no text, no watermark, no logo`;
     try {
       const out = await this.generate(
         this.chatModel,
-        `Write ONE single-line Stable Diffusion prompt (under 60 words) for an editorial illustration that visually represents this:\n\n"${safe}"\n\nRules:\n- No text, no letters, no logos, no watermarks in the image\n- Pure black background (#1D1E21) with crimson (#FF004F) and white accents\n- Cinematic, editorial, high contrast\n- Return ONLY the prompt text, no preface, no quotes\n`,
+        `Write ONE single-line Stable Diffusion prompt (under 60 words) for an editorial illustration that visually represents this:\n\n"${safe}"\n\nRules:\n- No text, no letters, no logos, no watermarks in the image\n- Pure black background (#000000) with crimson (#FF004F) and white accents\n- Cinematic, editorial, high contrast\n- Return ONLY the prompt text, no preface, no quotes\n`,
         'You write concise Stable Diffusion prompts.',
       );
       const line = out.split('\n').find((l) => l.trim().length > 0)?.trim() || fallback;
